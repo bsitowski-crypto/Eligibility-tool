@@ -23,7 +23,6 @@ button{width:100%;border:0;border-radius:12px;padding:14px 16px;font-size:16px;f
 <script>
 const PASSWORD_HASH="a32b36028c0b1ceea96d2b394510645e1c1c6796b270c4253a96933b0ba378d6";
 const SESSION_KEY="solvita_planner_unlocked_v1";
-
 function showLogin(){
  document.getElementById("root").innerHTML=`<div class="card"><h2>Solvita Recovery Planner</h2><p class="lock-note">Enter the access password to continue.</p><form id="loginForm"><input id="pw" type="password" inputmode="numeric" autocomplete="current-password" aria-label="Password" placeholder="Password"><button type="submit">UNLOCK</button><div id="error"></div></form></div>`;
  const form=document.getElementById("loginForm"), pw=document.getElementById("pw"), err=document.getElementById("error");
@@ -40,7 +39,6 @@ function showLogin(){
    }catch(ex){ err.textContent="Unable to verify password on this browser."; }
  });
 }
-
 async function loadPlanner(){
  document.getElementById("root").innerHTML='<div class="card"><h2>Solvita Recovery Planner</h2><p>Loading…</p></div>';
  const files=["app/data-1.b64","app/data-2.b64","app/data-3.b64"];
@@ -57,14 +55,15 @@ async function loadPlanner(){
    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
    if(typeof DecompressionStream==="undefined") throw new Error("This Safari version does not support the required decompression feature.");
    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-   const html=await new Response(stream).text();
+   let html=await new Response(stream).text();
+   const cloudTag="<scr"+"ipt src=\"./cloud-sync.js?v=9103\"></scr"+"ipt>";
+   html=html.replace("</body>",cloudTag+"</body>");
    if(!html || !html.includes("<html")) throw new Error("Planner decoded but did not contain a valid HTML document.");
    document.open(); document.write(html); document.close();
  }catch(err){
    document.body.innerHTML='<div class="card"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Send me the error text shown above.</p></div>';
  }
 }
-
 if(sessionStorage.getItem(SESSION_KEY)==="1") loadPlanner(); else showLogin();
 </script>
 </body>
