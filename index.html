@@ -15,7 +15,7 @@
 <div class="load"><h2>Solvita Recovery Planner</h2><p>Loading…</p></div>
 <script>
 (async()=>{
- const files=Array.from({length:13},(_,i)=>`app/chunk-${String(i+1).padStart(2,'0')}.b64`);
+ const files=["app/data-1.b64","app/data-2.b64","app/data-3.b64"];
  try{
    const parts=await Promise.all(files.map(async f=>{
      const r=await fetch(f,{cache:"no-store"});
@@ -23,16 +23,19 @@
      return (await r.text()).replace(/\s+/g,"");
    }));
    const b64=parts.join("");
+   if(b64.length%4!==0) throw new Error("Planner data length is invalid: "+b64.length);
    const bin=atob(b64);
    const bytes=new Uint8Array(bin.length);
    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-   const html=new TextDecoder("utf-8").decode(bytes);
-   if(!html || !html.includes("<html")) throw new Error("Planner data decoded but did not contain a valid HTML document.");
+   if(typeof DecompressionStream==="undefined") throw new Error("This Safari version does not support the required decompression feature.");
+   const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+   const html=await new Response(stream).text();
+   if(!html || !html.includes("<html")) throw new Error("Planner decoded but did not contain a valid HTML document.");
    document.open();
    document.write(html);
    document.close();
  }catch(err){
-   document.body.innerHTML='<div class="load"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Reload this page once. If it still fails, send me the error text shown above.</p></div>';
+   document.body.innerHTML='<div class="load"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Send me the error text shown above.</p></div>';
  }
 })();
 </script>
