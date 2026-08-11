@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#183153">
@@ -8,17 +9,34 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <title>Solvita Recovery Planner</title>
-<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f2f2f7;color:#071f3e;padding:24px}.load{max-width:560px;margin:80px auto;background:#fff;border-radius:16px;padding:24px;text-align:center}</style>
-</head><body><div class="load"><h2>Solvita Recovery Planner</h2><p>Loading…</p></div>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f2f2f7;color:#071f3e;padding:24px}.load{max-width:560px;margin:80px auto;background:#fff;border-radius:16px;padding:24px;text-align:center}.small{font-size:13px;color:#666;word-break:break-word}</style>
+</head>
+<body>
+<div class="load"><h2>Solvita Recovery Planner</h2><p>Loading…</p></div>
+<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script>
 (async()=>{
- const files=["app/data-1.b64", "app/data-2.b64", "app/data-3.b64"];
+ const files=["app/data-1.b64","app/data-2.b64","app/data-3.b64"];
  try{
-  const text=(await Promise.all(files.map(f=>fetch(f).then(r=>{if(!r.ok)throw new Error(f+" "+r.status);return r.text()})))).join("");
-  const bin=atob(text.trim()), bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
-  const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-  const html=await new Response(stream).text();
-  document.open();document.write(html);document.close();
- }catch(err){document.body.innerHTML='<div class="load"><h2>Unable to load planner</h2><p>'+String(err)+'</p></div>'}
+   if(typeof pako==="undefined") throw new Error("Decompression library did not load. Check internet connection and reload.");
+   const parts=await Promise.all(files.map(async f=>{
+     const r=await fetch(f,{cache:"no-store"});
+     if(!r.ok) throw new Error(f+" returned "+r.status);
+     return (await r.text()).replace(/\s+/g,"");
+   }));
+   const b64=parts.join("");
+   const bin=atob(b64);
+   const bytes=new Uint8Array(bin.length);
+   for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+   const html=pako.ungzip(bytes,{to:"string"});
+   if(!html || !html.includes("<html")) throw new Error("Planner data decoded but did not contain a valid HTML document.");
+   document.open();
+   document.write(html);
+   document.close();
+ }catch(err){
+   document.body.innerHTML='<div class="load"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Reload this page once. If it still fails, send me the error text shown above.</p></div>';
+ }
 })();
-</script></body></html>
+</script>
+</body>
+</html>
