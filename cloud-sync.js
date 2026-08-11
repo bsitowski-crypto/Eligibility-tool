@@ -123,9 +123,17 @@
     }
   }
 
-  function initCloud(){
+  function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src=src;s.onload=resolve;s.onerror=()=>reject(new Error("Could not load "+src));document.head.appendChild(s)})}
+  async function ensureFirebase(){
+    if(window.firebase)return;
+    await loadScript("https://www.gstatic.com/firebasejs/12.17.1/firebase-app-compat.js");
+    await loadScript("https://www.gstatic.com/firebasejs/12.17.1/firebase-auth-compat.js");
+    await loadScript("https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore-compat.js");
+  }
+  async function initCloud(){
     installCloudUI();
     try{
+      await ensureFirebase();
       if(!window.firebase)throw new Error("Firebase libraries did not load.");
       if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
       cloudAuth=firebase.auth();cloudDb=firebase.firestore();
