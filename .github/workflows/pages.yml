@@ -24,6 +24,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Inject shared donor sync
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("index.html")
+          s = p.read_text()
+          old = 'const html=await new Response(stream).text();'
+          new = 'let html=await new Response(stream).text(); html=html.replace("</body>","<script src=\\"./cloud-sync.js?v=9102\\"></script></body>");'
+          if old not in s:
+              raise SystemExit("Planner loader marker not found")
+          p.write_text(s.replace(old, new, 1))
+          PY
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload site
