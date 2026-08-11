@@ -1,4 +1,4 @@
-const CACHE="solvita-planner-v9-10-1-fix3";
+const CACHE="solvita-planner-v9-10-1-password1";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./icons/icon.svg","./app/data-1.b64","./app/data-2.b64","./app/data-3.b64"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)));self.skipWaiting()});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
