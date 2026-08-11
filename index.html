@@ -13,31 +13,21 @@
 </head>
 <body>
 <div class="load"><h2>Solvita Recovery Planner</h2><p>Loading…</p></div>
-<script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
 <script>
 (async()=>{
- const files=["app/data-1.b64","app/data-2.b64","app/data-3.b64"];
+ const files=Array.from({length:13},(_,i)=>`app/chunk-${String(i+1).padStart(2,'0')}.b64`);
  try{
-   if(typeof pako==="undefined") throw new Error("Decompression library did not load. Check internet connection and reload.");
-   const byteParts=[];
-   let total=0;
-   for(const f of files){
+   const parts=await Promise.all(files.map(async f=>{
      const r=await fetch(f,{cache:"no-store"});
      if(!r.ok) throw new Error(f+" returned "+r.status);
-     const b64=(await r.text()).replace(/\s+/g,"");
-     let bin;
-     try{ bin=atob(b64); }
-     catch(e){ throw new Error(f+" contains invalid base64 data"); }
-     const bytes=new Uint8Array(bin.length);
-     for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
-     byteParts.push(bytes);
-     total+=bytes.length;
-   }
-   const all=new Uint8Array(total);
-   let offset=0;
-   for(const part of byteParts){ all.set(part,offset); offset+=part.length; }
-   const html=pako.ungzip(all,{to:"string"});
-   if(!html || !/<html[\s>]/i.test(html)) throw new Error("Planner data decoded but did not contain a valid HTML document.");
+     return (await r.text()).replace(/\s+/g,"");
+   }));
+   const b64=parts.join("");
+   const bin=atob(b64);
+   const bytes=new Uint8Array(bin.length);
+   for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+   const html=new TextDecoder("utf-8").decode(bytes);
+   if(!html || !html.includes("<html")) throw new Error("Planner data decoded but did not contain a valid HTML document.");
    document.open();
    document.write(html);
    document.close();
