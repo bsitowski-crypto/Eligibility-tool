@@ -1,67 +1,43 @@
 (function(){
   "use strict";
+  const COMPANY_KEY="solvita_v9108_transport_companies";
+  const SOLVITA="18111 NE Sandy Blvd, Portland, OR 97230";
+  const DISPATCH=15,HOSPITAL_LOAD=30,FUNERAL_LOAD=15;
+  let pendingId="";
 
-  function currentDonor(){try{if(typeof cur==="function")return cur()}catch{}try{if(typeof donors!=="undefined"&&typeof activeId!=="undefined")return donors.find(d=>d.id===activeId)||null}catch{}return null}
-  function donorById(id){try{return donors.find(d=>String(d.id)===String(id))||null}catch{return null}}
-  function clean(s){return String(s||"").replace(/\s+/g," ").trim()}
+  function donorsList(){try{return donors||[]}catch{return[]}}
+  function donorById(id){return donorsList().find(d=>String(d.id)===String(id))||null}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+  function clean(s){return String(s||"").trim()}
+  function companies(){try{const a=JSON.parse(localStorage.getItem(COMPANY_KEY)||"[]");return Array.isArray(a)?a:[]}catch{return[]}}
+  function fmtMin(n){n=Math.round(n);const h=Math.floor(n/60),m=n%60;return h?`${h} hr${h===1?"":"s"}${m?` ${m} min`:""}`:`${m} min`}
+  function fmtClock(d){return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
+  function addMin(d,m){return new Date(d.getTime()+m*60000)}
+  function pickupType(d){if(d.transportPickupType==="h"||d.transportPickupType==="f")return d.transportPickupType;const h=!!(d.hospitalSnapshot||clean(d.referralSource)),f=!!(d.funeralSnapshot||clean(d.funeralHome));if(h&&!f)return"h";if(f&&!h)return"f";return""}
+  function record(type,d){try{const list=type==="h"?dirs.hospitals:dirs.funerals,snap=type==="h"?d.hospitalSnapshot:d.funeralSnapshot,name=clean(snap?.name||(type==="h"?d.referralSource:d.funeralHome)).toLowerCase();if(snap?.id){const r=list.find(x=>String(x.id)===String(snap.id));if(r)return r}return list.find(x=>clean(x.name).toLowerCase()===name)||null}catch{return null}}
 
-  function addStyles(){
-    if(document.getElementById("transportCardStyle"))return;
-    const s=document.createElement("style");s.id="transportCardStyle";s.textContent=`
-.transport-card-eta{margin-top:8px;padding:8px 10px;border-radius:9px;background:#eef6ff;color:#0b4f9c;font-size:12px;line-height:1.35;border:1px solid #d4e7fb}
-.transport-card-eta strong{color:#071f3e}.transport-card-eta .tce-sub{color:#5b6877;font-size:11px;margin-top:2px}
-`;
-    document.head.appendChild(s);
-  }
+  function styles(){if(document.getElementById("safeTransportCardStyle"))return;const s=document.createElement("style");s.id="safeTransportCardStyle";s.textContent=`
+.transport-card-safe{margin-top:8px;padding:9px 10px;border:1px solid #d4e7fb;border-radius:10px;background:#eef6ff;font-size:12px;line-height:1.35}.transport-card-safe strong{color:#071f3e}.transport-card-safe .sub{font-size:11px;color:#5b6877;margin-top:2px}.transport-card-safe button{width:100%;margin-top:7px!important;background:#eaf2fb!important;color:#0b4f9c!important;border:1px solid #cfe0f2!important}
+#safeTransportModal{position:fixed;inset:0;z-index:9000;background:#071f3eee;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}#safeTransportModal.hidden{display:none!important}.stm-box{width:min(520px,100%);background:#fff;border-radius:18px;padding:20px;color:#172033;box-sizing:border-box}.stm-box h2{margin:0 0 8px;color:#071f3e}.stm-note{font-size:12px;color:#667;line-height:1.4;margin-bottom:12px}.stm-field{margin-top:10px}.stm-field label{display:block;font-size:12px;font-weight:800;color:#556;margin-bottom:5px}.stm-field select{width:100%;box-sizing:border-box;padding:12px;border:1px solid #c9ced6;border-radius:10px;background:#fff;font-size:16px}.stm-loc{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stm-loc button{padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:800}.stm-loc button.on{background:#0b63ce;color:#fff;border-color:#0b63ce}.stm-primary,.stm-close{width:100%;min-height:44px;border:0;border-radius:10px;padding:12px;font-weight:850;margin-top:10px}.stm-primary{background:#0b63ce;color:#fff}.stm-close{background:#68707a;color:#fff}.stm-error{display:none;margin-top:10px;padding:10px;border-radius:9px;background:#fff0f0;color:#8a1d1d;font-size:12px}
+`;document.head.appendChild(s)}
 
-  function decorateBoard(){
-    addStyles();
-    document.querySelectorAll(".donor").forEach(card=>{
-      const btn=card.querySelector(".donor-open-btn[data-donor-id]");if(!btn)return;
-      const d=donorById(btn.dataset.donorId);if(!d)return;
-      let box=card.querySelector(".transport-card-eta");
-      const e=d.transportEstimate;
-      if(!e){if(box)box.remove();return}
-      if(!box){box=document.createElement("div");box.className="transport-card-eta";const actions=card.querySelector(".actions");if(actions)card.insertBefore(box,actions);else card.appendChild(box)}
-      const company=clean(e.companyName),total=clean(e.totalText),arrival=clean(e.arrivalClock),location=clean(e.locationName);
-      box.innerHTML=`<strong>Transport: ${total||"Estimate saved"}</strong>${arrival?` · ETA Solvita ${arrival}`:""}<div class="tce-sub">${company||"Transport"}${location?` · pickup ${location}`:""}</div>`;
-    });
-  }
+  function ensureModal(){if(document.getElementById("safeTransportModal"))return;styles();const m=document.createElement("div");m.id="safeTransportModal";m.className="hidden";m.innerHTML=`<div class="stm-box"><h2>Calculate Transport</h2><div id="stmPickup" class="stm-note"></div><div id="stmLocationButtons"></div><div class="stm-field"><label>TRANSPORT COMPANY</label><select id="stmCompany"></select></div><div id="stmError" class="stm-error"></div><button id="stmCalc" class="stm-primary" type="button">CALCULATE TRANSPORT TIME</button><button id="stmClose" class="stm-close" type="button">CANCEL</button></div>`;document.body.appendChild(m);document.getElementById("stmClose").onclick=()=>m.classList.add("hidden");document.getElementById("stmCalc").onclick=calculate;m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden")})}
 
-  function saveEstimateFromResult(){
-    const result=document.getElementById("tpResult");
-    const total=result?.querySelector(".tp-total strong");if(!total)return;
-    const d=currentDonor();if(!d)return;
-    const companySel=document.getElementById("tpCompany"),locSel=document.getElementById("tpLocation"),type=document.getElementById("tpType")?.value||"";
-    const timeline=clean(result.querySelector(".tp-timeline")?.textContent||"");
-    const arrivalMatch=timeline.match(/Arrives at Solvita:\s*([^A-Za-z]*\d{1,2}:\d{2}\s*(?:AM|PM)?)/i)||timeline.match(/Arrives at Solvita:\s*([^·]+)$/i);
-    d.transportEstimate={
-      totalText:clean(total.textContent),
-      arrivalClock:arrivalMatch?clean(arrivalMatch[1]):"",
-      companyId:companySel?.value||"",
-      companyName:companySel?.selectedOptions?.[0]?.textContent||"",
-      locationId:locSel?.value||"",
-      locationName:locSel?.selectedOptions?.[0]?.textContent||"",
-      pickupType:type,
-      calculatedAt:new Date().toISOString()
-    };
-    try{save()}catch{}
-    decorateBoard();
-  }
+  function chooseLocation(type){const d=donorById(pendingId);if(!d)return;d.transportPickupType=type;try{save()}catch{};renderModalLocation(d)}
+  function renderModalLocation(d){const h=!!(d.hospitalSnapshot||clean(d.referralSource)),f=!!(d.funeralSnapshot||clean(d.funeralHome)),type=pickupType(d),box=document.getElementById("stmLocationButtons"),note=document.getElementById("stmPickup");if(h&&f){box.innerHTML=`<div class="stm-field"><label>CURRENT DONOR LOCATION</label><div class="stm-loc"><button type="button" data-stm-location="h" class="${type==="h"?"on":""}">HOSPITAL</button><button type="button" data-stm-location="f" class="${type==="f"?"on":""}">FUNERAL HOME</button></div></div>`}else box.innerHTML="";const r=type?record(type,d):null;note.innerHTML=type&&r?`Pickup: <strong>${type==="h"?"Hospital":"Funeral Home"}</strong> — ${esc(r.name)}<br>${type==="h"?30:15} min loading + 15 min driver departure allowance`:`Choose the donor's current location before calculating.`}
 
-  function hookResult(){
-    const result=document.getElementById("tpResult");if(!result||result.dataset.transportCardHook)return false;
-    result.dataset.transportCardHook="1";
-    new MutationObserver(()=>{if(result.querySelector(".tp-total strong"))setTimeout(saveEstimateFromResult,0)}).observe(result,{childList:true,subtree:true});
-    return true;
-  }
+  function openCalc(id){ensureModal();pendingId=id;const d=donorById(id);if(!d)return;const list=companies(),sel=document.getElementById("stmCompany");sel.innerHTML='<option value="">Select transport company…</option>'+list.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");if(d.transportEstimate?.companyId&&[...sel.options].some(o=>o.value===d.transportEstimate.companyId))sel.value=d.transportEstimate.companyId;renderModalLocation(d);document.getElementById("stmError").style.display="none";document.getElementById("safeTransportModal").classList.remove("hidden")}
 
-  function hookBoard(){
-    const board=document.getElementById("board");if(!board||board.dataset.transportCardHook)return false;
-    board.dataset.transportCardHook="1";
-    new MutationObserver(()=>setTimeout(decorateBoard,0)).observe(board,{childList:true,subtree:true});
-    decorateBoard();return true;
-  }
+  function decorateBoard(){styles();ensureModal();document.querySelectorAll(".donor").forEach(card=>{const open=card.querySelector(".donor-open-btn[data-donor-id]");if(!open)return;const d=donorById(open.dataset.donorId);if(!d)return;let box=card.querySelector(".transport-card-safe");if(!box){box=document.createElement("div");box.className="transport-card-safe";const actions=card.querySelector(".actions");actions?card.insertBefore(box,actions):card.appendChild(box)}const e=d.transportEstimate;box.innerHTML=e?`<strong>Transport: ${esc(e.totalText||fmtMin(e.totalMinutes||0))}</strong>${e.arrivalClock?` · ETA Solvita ${esc(e.arrivalClock)}`:""}<div class="sub">${esc(e.companyName||"Transport")}${e.locationName?` · pickup ${esc(e.locationName)}`:""}</div><button type="button" data-safe-transport="${esc(d.id)}">RECALCULATE TRANSPORT</button>`:`<strong>Transport: Not calculated</strong><div class="sub">Calculate directly from this donor card.</div><button type="button" data-safe-transport="${esc(d.id)}">CALCULATE TRANSPORT</button>`})}
 
-  let tries=0;const timer=setInterval(()=>{tries++;const a=hookResult(),b=hookBoard();decorateBoard();if((a||document.getElementById("tpResult")?.dataset.transportCardHook)&&(b||document.getElementById("board")?.dataset.transportCardHook)||tries>60)clearInterval(timer)},250);
+  async function geo(q){if(typeof geocodePlace==="function"){try{return await geocodePlace(q)}catch{}}const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q="+encodeURIComponent(q),{headers:{Accept:"application/json"}});if(!r.ok)throw new Error("Location lookup failed");const a=await r.json();if(!a.length)throw new Error("No map match for "+q);return{lat:Number(a[0].lat),lon:Number(a[0].lon)}}
+  async function route(a,b){const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&steps=false`);const x=await r.json();if(!r.ok||x.code!=="Ok"||!x.routes?.length)throw new Error("No driving route found");return{minutes:Math.max(1,Math.round(x.routes[0].duration/60)),miles:Math.round(x.routes[0].distance/1609.344*10)/10}}
+  function facility(type,r){if(typeof facilityQuery==="function"){try{return facilityQuery(type,r)}catch{}}return type==="h"?[r.name,r.cityCounty].filter(Boolean).join(", "):[r.name,r.location].filter(Boolean).join(", ")}
+
+  async function calculate(){const d=donorById(pendingId),type=d?pickupType(d):"",r=d&&type?record(type,d):null,c=companies().find(x=>String(x.id)===String(document.getElementById("stmCompany").value)),err=document.getElementById("stmError"),btn=document.getElementById("stmCalc");if(!type||!r){err.textContent="Choose the donor's current hospital or funeral home.";err.style.display="block";return}if(!c){err.textContent="Select a transport company.";err.style.display="block";return}err.style.display="none";btn.disabled=true;btn.textContent="CALCULATING…";try{const a=await geo(c.base),b=await geo(facility(type,r)),s=await geo(SOLVITA),leg1=await route(a,b),leg2=await route(b,s),load=type==="h"?HOSPITAL_LOAD:FUNERAL_LOAD,total=DISPATCH+leg1.minutes+load+leg2.minutes,miles=Math.round((leg1.miles+leg2.miles)*10)/10,arrival=addMin(new Date(),total);d.transportEstimate={totalMinutes:total,totalText:fmtMin(total),totalMiles:miles,arrivalClock:fmtClock(arrival),arrivalAt:arrival.toISOString(),companyId:c.id,companyName:c.name,locationId:r.id,locationName:r.name,pickupType:type,calculatedAt:new Date().toISOString()};try{save()}catch{};document.getElementById("safeTransportModal").classList.add("hidden");try{renderBoard()}catch{};setTimeout(decorateBoard,0)}catch(e){err.textContent="Unable to calculate route: "+(e.message||e);err.style.display="block"}finally{btn.disabled=false;btn.textContent="CALCULATE TRANSPORT TIME"}}
+
+  document.addEventListener("click",e=>{const loc=e.target.closest?.("[data-stm-location]");if(loc){e.preventDefault();chooseLocation(loc.dataset.stmLocation);return}const b=e.target.closest?.("[data-safe-transport]");if(b){e.preventDefault();openCalc(b.dataset.safeTransport)}},false);
+
+  function install(){if(typeof window.renderBoard!=="function")return false;const original=window.renderBoard;if(!original.__safeTransportWrapped){const wrapped=function(){const result=original.apply(this,arguments);setTimeout(decorateBoard,0);return result};wrapped.__safeTransportWrapped=true;window.renderBoard=wrapped}decorateBoard();return true}
+  let tries=0;const timer=setInterval(()=>{tries++;if(install()||tries>40)clearInterval(timer)},250);
 })();
