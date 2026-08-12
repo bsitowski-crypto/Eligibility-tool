@@ -8,7 +8,7 @@
   function currentDonor(){try{if(typeof cur==="function")return cur()}catch{}try{if(typeof donors!=="undefined"&&typeof activeId!=="undefined")return donors.find(d=>d.id===activeId)||null}catch{}return null}
   function hasHospital(d){return !!(d?.hospitalSnapshot||textVal("referralSource"))}
   function hasFuneral(d){return !!(d?.funeralSnapshot||textVal("funeralHome"))}
-  function pickupType(d){if(d?.transportPickupType==="h"||d?.transportPickupType==="f")return d.transportPickupType;const h=hasHospital(d),f=hasFuneral(d);if(h&&!f)return "h";if(f&&!h)return "f";return ""}
+  function pickupType(d){const h=hasHospital(d),f=hasFuneral(d);if(h&&!f)return "h";if(f&&!h)return "f";if(h&&f&&(d?.transportPickupType==="h"||d?.transportPickupType==="f"))return d.transportPickupType;return ""}
   function locationLabel(type,d){return type==="h"?(d?.hospitalSnapshot?.name||textVal("referralSource")||"Hospital"):(d?.funeralSnapshot?.name||textVal("funeralHome")||"Funeral Home")}
   function savePickup(type){const d=currentDonor();if(!d)return;d.transportPickupType=type;try{save()}catch{}}
 
@@ -34,7 +34,7 @@
 
   function refreshSelector(){
     const planner=document.getElementById("plannerView");if(!planner||planner.classList.contains("hidden"))return;const d=currentDonor();if(!d)return;addStyles();const wrap=ensureWrap();if(!wrap)return;
-    const h=hasHospital(d),f=hasFuneral(d);let selected=pickupType(d);if(selected==="h"&&!h)selected=f?"f":"";if(selected==="f"&&!f)selected=h?"h":"";if(!selected){if(h&&!f)selected="h";if(f&&!h)selected="f"}if(selected&&d.transportPickupType!==selected){d.transportPickupType=selected;try{save()}catch{}}
+    const h=hasHospital(d),f=hasFuneral(d);let selected=pickupType(d);if(selected&&d.transportPickupType!==selected){d.transportPickupType=selected;try{save()}catch{}}
     if(!(h||f)){wrap.style.display="none";return}wrap.style.display="flex";wrap.classList.toggle("tl-single",!(h&&f));
     if(h&&f)wrap.innerHTML=`<div class="tl-title">CURRENT LOCATION</div><div class="tl-switch"><button type="button" data-pickup="h" class="${selected==="h"?"on":""}">HOSPITAL</button><button type="button" data-pickup="f" class="${selected==="f"?"on":""}">FUNERAL</button></div>`;
     else{const type=h?"h":"f";wrap.innerHTML=`<div class="tl-title">CURRENT LOCATION</div><div class="tl-switch"><button type="button" class="on" disabled>${type==="h"?"HOSPITAL":"FUNERAL HOME"}</button></div>`}
@@ -59,6 +59,7 @@
         d.funeralHome=rec.name;d.funeralSnapshot=typeof cloneData==="function"?cloneData(rec):JSON.parse(JSON.stringify(rec));
         document.getElementById("funeralSugs")?.classList.add("hidden");
       }
+      const h=hasHospital(d),f=hasFuneral(d);if(h&&!f)d.transportPickupType="h";else if(f&&!h)d.transportPickupType="f";
       try{save()}catch{}
       setTimeout(refreshSelector,0);
       return true;
