@@ -1,4 +1,4 @@
-const CACHE="solvita-planner-v9-10-13-card-transport1";
+const CACHE="solvita-planner-v9-10-14-rollback-stable1";
 const APP_SHELL=["./","./index.html","./manifest.webmanifest","./icons/icon.svg","./app/data-1.b64","./app/data-2.b64","./app/data-3.b64","./cloud-sync.js","./collaboration.js","./compact-menu.js","./directory-recovery.js","./transport-planner.js","./transport-location.js","./transport-card.js"];
 self.addEventListener("install",event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)));self.skipWaiting()});
 self.addEventListener("activate",event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
