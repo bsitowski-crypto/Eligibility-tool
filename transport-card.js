@@ -18,7 +18,7 @@
 
   function styles(){if(document.getElementById("safeTransportCardStyle"))return;const s=document.createElement("style");s.id="safeTransportCardStyle";s.textContent=`
 .transport-card-safe{margin-top:8px;padding:9px 10px;border:1px solid #d4e7fb;border-radius:10px;background:#eef6ff;font-size:12px;line-height:1.35}.transport-card-safe strong{color:#071f3e}.transport-card-safe .sub{font-size:11px;color:#5b6877;margin-top:2px}.transport-card-safe button{width:100%;margin-top:7px!important;background:#eaf2fb!important;color:#0b4f9c!important;border:1px solid #cfe0f2!important}
-#safeTransportModal{position:fixed;inset:0;z-index:9000;background:#071f3eee;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}#safeTransportModal.hidden{display:none!important}.stm-box{width:min(520px,100%);background:#fff;border-radius:18px;padding:20px;color:#172033;box-sizing:border-box}.stm-box h2{margin:0 0 8px;color:#071f3e}.stm-note{font-size:12px;color:#667;line-height:1.4;margin-bottom:12px}.stm-field{margin-top:10px}.stm-field label{display:block;font-size:12px;font-weight:800;color:#556;margin-bottom:5px}.stm-field select{width:100%;box-sizing:border-box;padding:12px;border:1px solid #c9ced6;border-radius:10px;background:#fff;font-size:16px}.stm-loc{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stm-loc button{padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:800}.stm-loc button.on{background:#0b63ce;color:#fff;border-color:#0b63ce}.stm-primary,.stm-close{width:100%;min-height:44px;border:0;border-radius:10px;padding:12px;font-weight:850;margin-top:10px}.stm-primary{background:#0b63ce;color:#fff}.stm-close{background:#68707a;color:#fff}.stm-error{display:none;margin-top:10px;padding:10px;border-radius:9px;background:#fff0f0;color:#8a1d1d;font-size:12px}
+#safeTransportModal{position:fixed;inset:0;z-index:9000;background:#071f3eee;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}#safeTransportModal.hidden{display:none!important}.stm-box{width:min(520px,100%);background:#fff;border-radius:18px;padding:20px;color:#172033;box-sizing:border-box}.stm-box h2{margin:0 0 8px;color:#071f3e}.stm-note{font-size:12px;color:#667;line-height:1.4;margin-bottom:12px}.stm-field{margin-top:10px}.stm-field label{display:block;font-size:12px;font-weight:800;color:#556;margin-bottom:5px}.stm-field select{width:100%;box-sizing:border-box;padding:12px;border:1px solid #c9ced6;border-radius:10px;background:#fff;font-size:16px}.stm-loc{display:grid;grid-template-columns:1fr 1fr;gap:8px}.stm-loc button{padding:11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:800}.stm-loc button.on{background:#0b63ce;color:#fff;border-color:#0b63ce}.stm-primary,.stm-close{width:100%;min-height:44px;border:0;border-radius:10px;padding:12px;font-weight:850;margin-top:10px}.stm-primary{background:#0b63ce;color:#fff}.stm-close{background:#68707a;color:#fff}.stm-error{display:none;margin-top:10px;padding:10px;border-radius:9px;background:#fff0f0;color:#8a1d1d;font-size:12px;line-height:1.4}
 `;document.head.appendChild(s)}
 
   function ensureModal(){if(document.getElementById("safeTransportModal"))return;styles();const m=document.createElement("div");m.id="safeTransportModal";m.className="hidden";m.innerHTML=`<div class="stm-box"><h2>Calculate Transport</h2><div id="stmPickup" class="stm-note"></div><div id="stmLocationButtons"></div><div class="stm-field"><label>TRANSPORT COMPANY</label><select id="stmCompany"></select></div><div id="stmError" class="stm-error"></div><button id="stmCalc" class="stm-primary" type="button">CALCULATE TRANSPORT TIME</button><button id="stmClose" class="stm-close" type="button">CANCEL</button></div>`;document.body.appendChild(m);document.getElementById("stmClose").onclick=()=>m.classList.add("hidden");document.getElementById("stmCalc").onclick=calculate;m.addEventListener("click",e=>{if(e.target===m)m.classList.add("hidden")})}
@@ -30,11 +30,64 @@
 
   function decorateBoard(){styles();ensureModal();document.querySelectorAll(".donor").forEach(card=>{const open=card.querySelector(".donor-open-btn[data-donor-id]");if(!open)return;const d=donorById(open.dataset.donorId);if(!d)return;let box=card.querySelector(".transport-card-safe");if(!box){box=document.createElement("div");box.className="transport-card-safe";const actions=card.querySelector(".actions");actions?card.insertBefore(box,actions):card.appendChild(box)}const e=d.transportEstimate;box.innerHTML=e?`<strong>Transport: ${esc(e.totalText||fmtMin(e.totalMinutes||0))}</strong>${e.arrivalClock?` · ETA Solvita ${esc(e.arrivalClock)}`:""}<div class="sub">${esc(e.companyName||"Transport")}${e.locationName?` · pickup ${esc(e.locationName)}`:""}</div><button type="button" data-safe-transport="${esc(d.id)}">RECALCULATE TRANSPORT</button>`:`<strong>Transport: Not calculated</strong><div class="sub">Calculate directly from this donor card.</div><button type="button" data-safe-transport="${esc(d.id)}">CALCULATE TRANSPORT</button>`})}
 
-  async function geo(q){if(typeof geocodePlace==="function"){try{return await geocodePlace(q)}catch{}}const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q="+encodeURIComponent(q),{headers:{Accept:"application/json"}});if(!r.ok)throw new Error("Location lookup failed");const a=await r.json();if(!a.length)throw new Error("No map match for "+q);return{lat:Number(a[0].lat),lon:Number(a[0].lon)}}
-  async function route(a,b){const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&steps=false`);const x=await r.json();if(!r.ok||x.code!=="Ok"||!x.routes?.length)throw new Error("No driving route found");return{minutes:Math.max(1,Math.round(x.routes[0].duration/60)),miles:Math.round(x.routes[0].distance/1609.344*10)/10}}
-  function facility(type,r){if(typeof facilityQuery==="function"){try{return facilityQuery(type,r)}catch{}}return type==="h"?[r.name,r.cityCounty].filter(Boolean).join(", "):[r.name,r.location].filter(Boolean).join(", ")}
+  async function geoOne(q){
+    if(typeof geocodePlace==="function"){try{const p=await geocodePlace(q);if(p&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)))return{lat:Number(p.lat),lon:Number(p.lon)}}catch{}}
+    const r=await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&q="+encodeURIComponent(q),{headers:{Accept:"application/json"}});
+    if(!r.ok)throw new Error("map service returned "+r.status);
+    const a=await r.json();if(!a.length)throw new Error("no map match");
+    return{lat:Number(a[0].lat),lon:Number(a[0].lon)}
+  }
+  async function geoMany(label,queries){
+    const seen=new Set(),errors=[];
+    for(const raw of queries){const q=clean(raw);if(!q||seen.has(q.toLowerCase()))continue;seen.add(q.toLowerCase());try{return await geoOne(q)}catch(e){errors.push(q+": "+(e.message||e))}}
+    throw new Error(label+" could not be located on the map. Tried: "+[...seen].join(" | "))
+  }
+  async function route(label,a,b){
+    const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&steps=false`);
+    let x={};try{x=await r.json()}catch{}
+    if(!r.ok||x.code!=="Ok"||!x.routes?.length)throw new Error(label+" route could not be calculated"+(x.code?` (${x.code})`:""));
+    return{minutes:Math.max(1,Math.round(x.routes[0].duration/60)),miles:Math.round(x.routes[0].distance/1609.344*10)/10}
+  }
+  function cityOnly(v){
+    const s=clean(v);if(!s)return"";
+    return clean(s.split(" - ")[0].split("-")[0]);
+  }
+  function facilityQueries(type,r){
+    const q=[];
+    if(typeof facilityQuery==="function"){try{q.push(facilityQuery(type,r))}catch{}}
+    if(type==="h"){
+      const city=cityOnly(r.cityCounty||r.city||r.location);
+      if(r.address)q.push(r.address);
+      if(r.name&&city)q.push(`${r.name}, ${city}, OR`);
+      if(r.name)q.push(`${r.name}, Oregon`);
+      if(city)q.push(`${city}, OR`);
+    }else{
+      const city=cityOnly(r.location||r.cityCounty||r.city);
+      if(r.address)q.push(r.address);
+      if(r.name&&city)q.push(`${r.name}, ${city}, OR`);
+      if(r.name)q.push(`${r.name}, Oregon`);
+      if(city)q.push(`${city}, OR`);
+    }
+    return q;
+  }
 
-  async function calculate(){const d=donorById(pendingId),type=d?pickupType(d):"",r=d&&type?record(type,d):null,c=companies().find(x=>String(x.id)===String(document.getElementById("stmCompany").value)),err=document.getElementById("stmError"),btn=document.getElementById("stmCalc");if(!type||!r){err.textContent="Choose the donor's current hospital or funeral home.";err.style.display="block";return}if(!c){err.textContent="Select a transport company.";err.style.display="block";return}err.style.display="none";btn.disabled=true;btn.textContent="CALCULATING…";try{const a=await geo(c.base),b=await geo(facility(type,r)),s=await geo(SOLVITA),leg1=await route(a,b),leg2=await route(b,s),load=type==="h"?HOSPITAL_LOAD:FUNERAL_LOAD,total=DISPATCH+leg1.minutes+load+leg2.minutes,miles=Math.round((leg1.miles+leg2.miles)*10)/10,arrival=addMin(new Date(),total);d.transportEstimate={totalMinutes:total,totalText:fmtMin(total),totalMiles:miles,arrivalClock:fmtClock(arrival),arrivalAt:arrival.toISOString(),companyId:c.id,companyName:c.name,locationId:r.id,locationName:r.name,pickupType:type,calculatedAt:new Date().toISOString()};try{save()}catch{};document.getElementById("safeTransportModal").classList.add("hidden");try{renderBoard()}catch{};setTimeout(decorateBoard,0)}catch(e){err.textContent="Unable to calculate route: "+(e.message||e);err.style.display="block"}finally{btn.disabled=false;btn.textContent="CALCULATE TRANSPORT TIME"}}
+  async function calculate(){
+    const d=donorById(pendingId),type=d?pickupType(d):"",r=d&&type?record(type,d):null,c=companies().find(x=>String(x.id)===String(document.getElementById("stmCompany").value)),err=document.getElementById("stmError"),btn=document.getElementById("stmCalc");
+    if(!type||!r){err.textContent="Choose the donor's current hospital or funeral home.";err.style.display="block";return}
+    if(!c){err.textContent="Select a transport company.";err.style.display="block";return}
+    err.style.display="none";btn.disabled=true;btn.textContent="CALCULATING…";
+    try{
+      const a=await geoMany("Transport company base",[c.base,c.base&&`${c.base}, Oregon`,c.name&&`${c.name}, Oregon`]);
+      const b=await geoMany(type==="h"?"Donor hospital":"Donor funeral home",facilityQueries(type,r));
+      const s=await geoMany("Solvita",[SOLVITA,"Solvita Portland Oregon"]);
+      const leg1=await route("Transport company → donor",a,b);
+      const leg2=await route("Donor → Solvita",b,s);
+      const load=type==="h"?HOSPITAL_LOAD:FUNERAL_LOAD,total=DISPATCH+leg1.minutes+load+leg2.minutes,miles=Math.round((leg1.miles+leg2.miles)*10)/10,arrival=addMin(new Date(),total);
+      d.transportEstimate={totalMinutes:total,totalText:fmtMin(total),totalMiles:miles,arrivalClock:fmtClock(arrival),arrivalAt:arrival.toISOString(),companyId:c.id,companyName:c.name,locationId:r.id,locationName:r.name,pickupType:type,calculatedAt:new Date().toISOString(),leg1Minutes:leg1.minutes,leg2Minutes:leg2.minutes};
+      try{save()}catch{};document.getElementById("safeTransportModal").classList.add("hidden");try{renderBoard()}catch{};setTimeout(decorateBoard,0)
+    }catch(e){err.textContent="Unable to calculate route: "+(e.message||e);err.style.display="block"}
+    finally{btn.disabled=false;btn.textContent="CALCULATE TRANSPORT TIME"}
+  }
 
   document.addEventListener("click",e=>{const loc=e.target.closest?.("[data-stm-location]");if(loc){e.preventDefault();chooseLocation(loc.dataset.stmLocation);return}const b=e.target.closest?.("[data-safe-transport]");if(b){e.preventDefault();openCalc(b.dataset.safeTransport)}},false);
 
