@@ -39,7 +39,8 @@ h2{margin:0 0 12px;font-size:28px}.small{font-size:13px;color:#666;word-break:br
    const menuTag="<scr"+"ipt src=\"./compact-menu.js?v=9106\"></scr"+"ipt>";
    const directoryTag="<scr"+"ipt src=\"./directory-recovery.js?v=9107\"></scr"+"ipt>";
    const transportTag="<scr"+"ipt src=\"./transport-planner.js?v=9108\"></scr"+"ipt>";
-   html=html.replace("</body>",cloudTag+collabTag+menuTag+directoryTag+transportTag+"</body>");
+   const transportLocationTag="<scr"+"ipt src=\"./transport-location.js?v=9109\"></scr"+"ipt>";
+   html=html.replace("</body>",cloudTag+collabTag+menuTag+directoryTag+transportTag+transportLocationTag+"</body>");
    if(!html || !html.includes("<html")) throw new Error("Planner decoded but did not contain a valid HTML document.");
    document.open();document.write(html);document.close();
  }catch(err){
