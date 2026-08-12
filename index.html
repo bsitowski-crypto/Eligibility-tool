@@ -37,7 +37,8 @@ h2{margin:0 0 12px;font-size:28px}.small{font-size:13px;color:#666;word-break:br
    const cloudTag="<scr"+"ipt src=\"./cloud-sync.js?v=9104\"></scr"+"ipt>";
    const collabTag="<scr"+"ipt src=\"./collaboration.js?v=9105\"></scr"+"ipt>";
    const menuTag="<scr"+"ipt src=\"./compact-menu.js?v=9106\"></scr"+"ipt>";
-   html=html.replace("</body>",cloudTag+collabTag+menuTag+"</body>");
+   const directoryTag="<scr"+"ipt src=\"./directory-recovery.js?v=9107\"></scr"+"ipt>";
+   html=html.replace("</body>",cloudTag+collabTag+menuTag+directoryTag+"</body>");
    if(!html || !html.includes("<html")) throw new Error("Planner decoded but did not contain a valid HTML document.");
    document.open();document.write(html);document.close();
  }catch(err){
