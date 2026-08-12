@@ -1,7 +1,6 @@
 (function(){
   "use strict";
 
-  let openDonorHooked=false;
   let transportButtonHooked=false;
 
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -39,23 +38,41 @@
     const s=document.createElement("style");
     s.id="transportLocationStyle";
     s.textContent=`
-#transportLocationWrap{margin:12px 0;padding:12px;border:1px solid #d7dee8;border-radius:12px;background:#f8fbff;box-sizing:border-box}
-#transportLocationWrap .tl-title{font-size:12px;font-weight:900;color:#071f3e;margin-bottom:8px;letter-spacing:.02em}
-#transportLocationWrap .tl-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-#transportLocationWrap label{display:flex;align-items:flex-start;gap:8px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-size:13px;font-weight:750;line-height:1.25;cursor:pointer}
-#transportLocationWrap label.selected{border-color:#0b63ce;background:#edf6ff;color:#0b4f9c}
-#transportLocationWrap input{margin-top:2px}.tl-note{font-size:11px;color:#667;margin-top:8px;line-height:1.35}
-@media(max-width:520px){#transportLocationWrap .tl-options{grid-template-columns:1fr}}
+#transportLocationWrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;align-self:stretch;min-width:108px;padding:0 4px;box-sizing:border-box}
+#transportLocationWrap .tl-title{font-size:9px;font-weight:900;letter-spacing:.08em;color:#667;text-align:center;white-space:nowrap}
+#transportLocationWrap .tl-switch{display:grid;grid-template-columns:1fr 1fr;background:#e8edf3;border:1px solid #c8d1dc;border-radius:999px;padding:3px;width:104px;box-sizing:border-box;box-shadow:inset 0 1px 2px #0000000d}
+#transportLocationWrap button{appearance:none;border:0!important;background:transparent!important;color:#5d6875!important;border-radius:999px!important;padding:7px 5px!important;min-height:34px!important;font-size:10px!important;font-weight:900!important;line-height:1!important;box-shadow:none!important;margin:0!important}
+#transportLocationWrap button.on{background:#0b63ce!important;color:#fff!important;box-shadow:0 1px 4px #0002!important}
+#transportLocationWrap button:disabled{opacity:.32!important}
+#transportLocationWrap .tl-current{font-size:9px;color:#667;text-align:center;max-width:112px;line-height:1.15}
+#transportLocationWrap.tl-single .tl-switch{grid-template-columns:1fr;width:92px}
+@media(max-width:700px){
+  #transportLocationWrap{width:100%;min-width:0;padding:2px 0 5px;order:2}
+  #transportLocationWrap .tl-title{font-size:10px}
+  #transportLocationWrap .tl-switch{width:180px}
+  #transportLocationWrap.tl-single .tl-switch{width:150px}
+  #transportLocationWrap .tl-current{max-width:220px}
+}
 `;
     document.head.appendChild(s);
   }
 
-  function hostElement(){
-    const fh=document.getElementById("funeralHome");
-    const h=document.getElementById("referralSource");
-    return fh?.closest(".field,.form-field,.input-group,.row")
-      ||h?.closest(".field,.form-field,.input-group,.row")
-      ||fh?.parentElement||h?.parentElement||null;
+  function fieldsRow(){
+    const h=document.getElementById("referralSource"),f=document.getElementById("funeralHome");
+    if(!h||!f)return null;
+    const hr=h.closest(".row"),fr=f.closest(".row");
+    return hr&&hr===fr?hr:null;
+  }
+
+  function ensureWrap(){
+    const row=fieldsRow();if(!row)return null;
+    let wrap=document.getElementById("transportLocationWrap");
+    if(!wrap){
+      wrap=document.createElement("div");wrap.id="transportLocationWrap";
+      const funeralField=document.getElementById("funeralHome")?.closest(".fg")||document.getElementById("funeralHome")?.parentElement;
+      if(funeralField&&funeralField.parentElement===row)row.insertBefore(wrap,funeralField);else row.appendChild(wrap);
+    }
+    return wrap;
   }
 
   function refreshSelector(){
@@ -63,31 +80,65 @@
     if(!planner||planner.classList.contains("hidden"))return;
     const d=currentDonor();if(!d)return;
     addStyles();
-
-    let wrap=document.getElementById("transportLocationWrap");
-    if(!wrap){
-      const host=hostElement();if(!host)return;
-      wrap=document.createElement("div");
-      wrap.id="transportLocationWrap";
-      host.insertAdjacentElement("afterend",wrap);
-    }
+    const wrap=ensureWrap();if(!wrap)return;
 
     const h=hasHospital(d),f=hasFuneral(d);
     let selected=pickupType(d);
     if(selected==="h"&&!h)selected=f?"f":"";
     if(selected==="f"&&!f)selected=h?"h":"";
+    if(!selected){if(h&&!f)selected="h";if(f&&!h)selected="f"}
     if(selected&&d.transportPickupType!==selected){d.transportPickupType=selected;try{save()}catch{}}
 
     if(!(h||f)){wrap.style.display="none";return}
-    wrap.style.display="block";
-    wrap.innerHTML=`<div class="tl-title">CURRENT DONOR LOCATION</div><div class="tl-options">
-      ${h?`<label class="${selected==="h"?"selected":""}"><input type="radio" name="transportCurrentLocation" value="h" ${selected==="h"?"checked":""}><span><strong>Hospital</strong><br>${esc(locationLabel("h",d))}</span></label>`:""}
-      ${f?`<label class="${selected==="f"?"selected":""}"><input type="radio" name="transportCurrentLocation" value="f" ${selected==="f"?"checked":""}><span><strong>Funeral Home</strong><br>${esc(locationLabel("f",d))}</span></label>`:""}
-    </div><div class="tl-note">Transport uses this as the pickup point. Hospital loading adds 30 minutes; funeral-home loading adds 15 minutes.</div>`;
+    wrap.style.display="flex";
+    wrap.classList.toggle("tl-single",!(h&&f));
 
-    wrap.querySelectorAll('input[name="transportCurrentLocation"]').forEach(r=>{
-      r.addEventListener("change",()=>{savePickup(r.value);refreshSelector()},{once:true});
-    });
+    if(h&&f){
+      wrap.innerHTML=`<div class="tl-title">CURRENT LOCATION</div><div class="tl-switch"><button type="button" data-pickup="h" class="${selected==="h"?"on":""}">HOSPITAL</button><button type="button" data-pickup="f" class="${selected==="f"?"on":""}">FUNERAL</button></div>`;
+    }else{
+      const type=h?"h":"f";
+      wrap.innerHTML=`<div class="tl-title">CURRENT LOCATION</div><div class="tl-switch"><button type="button" class="on" disabled>${type==="h"?"HOSPITAL":"FUNERAL HOME"}</button></div>`;
+    }
+    wrap.querySelectorAll("button[data-pickup]").forEach(b=>b.addEventListener("click",()=>{savePickup(b.dataset.pickup);refreshSelector()}));
+  }
+
+  // Keep the planner's original hospital/funeral autocomplete completely untouched.
+  // We only listen after a suggestion has actually been chosen or text has changed,
+  // using document-level events that do not alter or delay the original handlers.
+  function installPassiveRefresh(){
+    if(document.documentElement.dataset.transportLocationPassiveHook)return;
+    document.documentElement.dataset.transportLocationPassiveHook="1";
+    document.addEventListener("change",e=>{
+      if(e.target?.id==="referralSource"||e.target?.id==="funeralHome")setTimeout(refreshSelector,30);
+    },false);
+    document.addEventListener("click",e=>{
+      if(e.target.closest?.("#hospitalSugs .sug, #funeralSugs .sug"))setTimeout(refreshSelector,60);
+      if(e.target.closest?.(".donor-open-btn"))setTimeout(refreshSelector,80);
+    },false);
+  }
+
+  // Safari safety net: if the original inline suggestion click ever fails,
+  // choose the matching directory record by the visible suggestion name.
+  function installSuggestionFallback(){
+    if(document.documentElement.dataset.transportSuggestionFallback)return;
+    document.documentElement.dataset.transportSuggestionFallback="1";
+    document.addEventListener("click",e=>{
+      const sug=e.target.closest?.("#hospitalSugs .sug, #funeralSugs .sug");if(!sug)return;
+      setTimeout(()=>{
+        const type=sug.closest("#hospitalSugs")?"h":"f";
+        const input=document.getElementById(type==="h"?"referralSource":"funeralHome");
+        if(!input)return;
+        const visible=String(sug.querySelector("strong")?.textContent||"").trim();
+        if(!visible)return;
+        if(String(input.value||"").trim()===visible)return;
+        try{
+          const list=type==="h"?dirs.hospitals:dirs.funerals;
+          const rec=list.find(x=>String(x.name||"").trim()===visible);
+          if(rec&&typeof choose==="function")choose(type,rec.id);
+        }catch{}
+        refreshSelector();
+      },0);
+    },false);
   }
 
   function matchRecord(type,d){
@@ -120,45 +171,25 @@
     },60);
   }
 
-  function hookInputs(){
-    ["referralSource","funeralHome"].forEach(id=>{
-      const el=document.getElementById(id);
-      if(!el||el.dataset.transportLocationSafeHook)return;
-      el.dataset.transportLocationSafeHook="1";
-      el.addEventListener("change",()=>setTimeout(refreshSelector,0));
-      el.addEventListener("blur",()=>setTimeout(refreshSelector,0));
-    });
-  }
-
-  function hookOpenDonor(){
-    if(openDonorHooked||typeof window.openDonor!=="function")return;
-    const original=window.openDonor;
-    window.openDonor=function(){
-      const result=original.apply(this,arguments);
-      setTimeout(()=>{hookInputs();refreshSelector()},0);
-      return result;
-    };
-    openDonorHooked=true;
-  }
-
   function hookTransportButton(){
     const btn=document.getElementById("transportPlannerBtn");
-    if(!btn||transportButtonHooked)return;
+    if(!btn||transportButtonHooked)return false;
     btn.addEventListener("click",()=>setTimeout(syncTransport,80));
     transportButtonHooked=true;
+    return true;
   }
 
   function install(){
-    hookOpenDonor();
+    installPassiveRefresh();
+    installSuggestionFallback();
     hookTransportButton();
-    hookInputs();
     refreshSelector();
-    return openDonorHooked&&transportButtonHooked;
   }
 
   let attempts=0;
   const timer=setInterval(()=>{
     attempts++;
-    if(install()||attempts>=40)clearInterval(timer);
+    install();
+    if((document.getElementById("referralSource")&&document.getElementById("funeralHome")&&transportButtonHooked)||attempts>=40)clearInterval(timer);
   },250);
 })();
