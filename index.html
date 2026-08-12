@@ -21,19 +21,11 @@ h2{margin:0 0 12px;font-size:28px}.small{font-size:13px;color:#666;word-break:br
 (async()=>{
  const files=["app/data-1.b64","app/data-2.b64","app/data-3.b64"];
  try{
-   const parts=await Promise.all(files.map(async f=>{
-     const r=await fetch(f,{cache:"no-store"});
-     if(!r.ok) throw new Error(f+" returned "+r.status);
-     return (await r.text()).replace(/\s+/g,"");
-   }));
-   const b64=parts.join("");
-   if(b64.length%4!==0) throw new Error("Planner data length is invalid: "+b64.length);
-   const bin=atob(b64);
-   const bytes=new Uint8Array(bin.length);
-   for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+   const parts=await Promise.all(files.map(async f=>{const r=await fetch(f,{cache:"no-store"});if(!r.ok) throw new Error(f+" returned "+r.status);return (await r.text()).replace(/\s+/g,"")}));
+   const b64=parts.join("");if(b64.length%4!==0) throw new Error("Planner data length is invalid: "+b64.length);
+   const bin=atob(b64);const bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
    if(typeof DecompressionStream==="undefined") throw new Error("This Safari version does not support the required decompression feature.");
-   const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-   let html=await new Response(stream).text();
+   const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));let html=await new Response(stream).text();
    const cloudTag="<scr"+"ipt src=\"./cloud-sync.js?v=9104\"></scr"+"ipt>";
    const collabTag="<scr"+"ipt src=\"./collaboration.js?v=9105\"></scr"+"ipt>";
    const menuTag="<scr"+"ipt src=\"./compact-menu.js?v=9106\"></scr"+"ipt>";
@@ -41,13 +33,11 @@ h2{margin:0 0 12px;font-size:28px}.small{font-size:13px;color:#666;word-break:br
    const transportTag="<scr"+"ipt src=\"./transport-planner.js?v=9108\"></scr"+"ipt>";
    const transportLocationTag="<scr"+"ipt src=\"./transport-location.js?v=9112\"></scr"+"ipt>";
    const transportFixTag="<scr"+"ipt src=\"./transport-geocode-fix.js?v=9116\"></scr"+"ipt>";
-   const transportCardTag="<scr"+"ipt src=\"./transport-card.js?v=9115\"></scr"+"ipt>";
+   const transportCardTag="<scr"+"ipt src=\"./transport-card.js?v=9117\"></scr"+"ipt>";
    html=html.replace("</body>",cloudTag+collabTag+menuTag+directoryTag+transportTag+transportLocationTag+transportFixTag+transportCardTag+"</body>");
    if(!html || !html.includes("<html")) throw new Error("Planner decoded but did not contain a valid HTML document.");
    document.open();document.write(html);document.close();
- }catch(err){
-   document.body.innerHTML='<div class="card"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Send me the error text shown above.</p></div>';
- }
+ }catch(err){document.body.innerHTML='<div class="card"><h2>Unable to load planner</h2><p class="small">'+String(err)+'</p><p class="small">Send me the error text shown above.</p></div>'}
 })();
 </script>
 </body>
