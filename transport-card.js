@@ -3,7 +3,16 @@
   const COMPANY_KEY="solvita_v9108_transport_companies";
   const SOLVITA="18111 NE Sandy Blvd, Portland, OR 97230";
   const DISPATCH=15,HOSPITAL_LOAD=30,FUNERAL_LOAD=15;
-  const KNOWN_BASES={"ccc":{lat:45.63248,lon:-122.67525,label:"1413 Lincoln Ave, Vancouver, WA 98660"},"clark county crematory":{lat:45.63248,lon:-122.67525,label:"1413 Lincoln Ave, Vancouver, WA 98660"}};
+  const KNOWN_BASES={
+    "ccc":{lat:45.63248,lon:-122.67525,label:"1413 Lincoln Ave, Vancouver, WA 98660"},
+    "clark county crematory":{lat:45.63248,lon:-122.67525,label:"1413 Lincoln Ave, Vancouver, WA 98660"},
+    "miller transport":{lat:45.92831,lon:-118.38499,label:"Milton-Freewater, OR"},
+    "pcc":{lat:45.5470,lon:-122.4810,label:"17819 NE Riverside Pkwy, Portland, OR 97230"},
+    "portland cremation center":{lat:45.5470,lon:-122.4810,label:"17819 NE Riverside Pkwy, Portland, OR 97230"},
+    "peaceful way":{lat:42.3505,lon:-122.8245,label:"2473 Stonebrook Dr, Medford, OR 97504"},
+    "tribute":{lat:45.5130,lon:-122.6530,label:"1125 SE Madison St, Portland, OR 97214"},
+    "westside transferrals":{lat:43.216503,lon:-123.341736,label:"Roseburg, OR"}
+  };
   let pendingId="";
   function donorsList(){try{return donors||[]}catch{return[]}}
   function donorById(id){return donorsList().find(d=>String(d.id)===String(id))||null}
@@ -26,7 +35,7 @@
   async function route(label,a,b){const r=await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false&steps=false`);let x={};try{x=await r.json()}catch{}if(!r.ok||x.code!=="Ok"||!x.routes?.length)throw new Error(label+" route could not be calculated"+(x.code?` (${x.code})`:""));return{minutes:Math.max(1,Math.round(x.routes[0].duration/60)),miles:Math.round(x.routes[0].distance/1609.344*10)/10}}
   function cityOnly(v){const s=clean(v);if(!s)return"";return clean(s.split(" - ")[0].split("-")[0])}
   function facilityQueries(type,r){const q=[];if(typeof facilityQuery==="function"){try{q.push(facilityQuery(type,r))}catch{}}const city=cityOnly((type==="h"?r.cityCounty:r.location)||r.cityCounty||r.city);if(r.address)q.push(r.address);if(r.name&&city)q.push(`${r.name}, ${city}, OR`);if(r.name)q.push(`${r.name}, Oregon`);if(city)q.push(`${city}, OR`);return q}
-  function knownCompanyBase(c){const n=clean(c?.name).toLowerCase();if(KNOWN_BASES[n])return KNOWN_BASES[n];if(/clark county crem/i.test(n)||n==="ccc")return KNOWN_BASES.ccc;return null}
+  function knownCompanyBase(c){const n=clean(c?.name).toLowerCase();if(KNOWN_BASES[n])return KNOWN_BASES[n];if(/clark county crem/i.test(n)||n==="ccc")return KNOWN_BASES.ccc;if(/miller.*transport/i.test(n))return KNOWN_BASES["miller transport"];if(/peaceful.*way/i.test(n))return KNOWN_BASES["peaceful way"];if(/westside.*transf/i.test(n))return KNOWN_BASES["westside transferrals"];if(n==="pcc"||/portland cremation/i.test(n))return KNOWN_BASES.pcc;if(/tribute/i.test(n))return KNOWN_BASES.tribute;return null}
   async function companyBase(c){const known=knownCompanyBase(c);if(known)return{lat:known.lat,lon:known.lon};const base=clean(c.base);const queries=[base];if(base&&!/(\bOR\b|\bWA\b|oregon|washington)/i.test(base))queries.push(`${base}, Oregon`);if(c.name)queries.push(`${c.name}, Oregon`);return geoMany("Transport company base",queries)}
   async function calculate(){const d=donorById(pendingId),type=d?pickupType(d):"",r=d&&type?record(type,d):null,c=companies().find(x=>String(x.id)===String(document.getElementById("stmCompany").value)),err=document.getElementById("stmError"),btn=document.getElementById("stmCalc");if(!type||!r){err.textContent="Choose the donor's current hospital or funeral home.";err.style.display="block";return}if(!c){err.textContent="Select a transport company.";err.style.display="block";return}err.style.display="none";btn.disabled=true;btn.textContent="CALCULATING…";try{const a=await companyBase(c);const b=await geoMany(type==="h"?"Donor hospital":"Donor funeral home",facilityQueries(type,r));const s=await geoMany("Solvita",[SOLVITA,"Solvita Portland Oregon"]);const leg1=await route("Transport company → donor",a,b);const leg2=await route("Donor → Solvita",b,s);const load=type==="h"?HOSPITAL_LOAD:FUNERAL_LOAD,total=DISPATCH+leg1.minutes+load+leg2.minutes,miles=Math.round((leg1.miles+leg2.miles)*10)/10,arrival=addMin(new Date(),total);d.transportEstimate={totalMinutes:total,totalText:fmtMin(total),totalMiles:miles,arrivalClock:fmtClock(arrival),arrivalAt:arrival.toISOString(),companyId:c.id,companyName:c.name,locationId:r.id,locationName:r.name,pickupType:type,calculatedAt:new Date().toISOString(),leg1Minutes:leg1.minutes,leg2Minutes:leg2.minutes};try{save()}catch{};document.getElementById("safeTransportModal").classList.add("hidden");try{renderBoard()}catch{};setTimeout(decorateBoard,0)}catch(e){err.textContent="Unable to calculate route: "+(e.message||e);err.style.display="block"}finally{btn.disabled=false;btn.textContent="CALCULATE TRANSPORT TIME"}}
   document.addEventListener("click",e=>{const loc=e.target.closest?.("[data-stm-location]");if(loc){e.preventDefault();chooseLocation(loc.dataset.stmLocation);return}const b=e.target.closest?.("[data-safe-transport]");if(b){e.preventDefault();openCalc(b.dataset.safeTransport)}},false);
