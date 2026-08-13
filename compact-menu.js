@@ -1,7 +1,7 @@
 (function(){
   "use strict";
 
-  let menuButton=null,menuPanel=null,observer=null;
+  let menuButton=null,menuPanel=null,observer=null,bodyObserver=null;
 
   function addStyles(){
     if(document.getElementById("solvitaCompactMenuStyle"))return;
@@ -40,15 +40,31 @@
     return true;
   }
 
+  function moveIntoMenu(el){
+    if(!el||!menuPanel||el===menuButton||el.closest("#solvitaMenuPanel"))return;
+    if(el.dataset.solvitaMenuMoved==="1")return;
+    el.dataset.solvitaMenuMoved="1";
+    menuPanel.appendChild(el);
+  }
+
   function moveHeaderControls(){
     const head=findHeader();if(!head||!menuPanel)return;
     const controls=[...head.querySelectorAll("button,a")].filter(el=>eligibleControl(el,head));
-    controls.forEach(el=>{
-      if(el.dataset.solvitaMenuMoved==="1")return;
-      el.dataset.solvitaMenuMoved="1";
-      menuPanel.appendChild(el);
-    });
+    controls.forEach(moveIntoMenu);
+    moveSpecialDashboardControls();
     if(menuPanel.children.length===0){menuButton.style.display="none"}else{menuButton.style.display="inline-block"}
+  }
+
+  function normalizedText(el){return String(el?.textContent||el?.getAttribute?.("aria-label")||"").trim().toUpperCase().replace(/\s+/g," ")}
+
+  function moveSpecialDashboardControls(){
+    if(!menuPanel)return;
+    const targets=new Set(["GRAFT CRITERIA","APP DATA"]);
+    document.querySelectorAll("button,a").forEach(el=>{
+      if(el===menuButton||el.closest("#solvitaMenuPanel"))return;
+      const text=normalizedText(el);
+      if(targets.has(text))moveIntoMenu(el);
+    });
   }
 
   function install(){
@@ -78,6 +94,8 @@
     moveHeaderControls();
     observer=new MutationObserver(()=>moveHeaderControls());
     observer.observe(head,{childList:true,subtree:true});
+    bodyObserver=new MutationObserver(()=>moveSpecialDashboardControls());
+    bodyObserver.observe(document.body,{childList:true,subtree:true});
     setTimeout(moveHeaderControls,750);
     setTimeout(moveHeaderControls,2000);
     return true;
