@@ -1,9 +1,36 @@
 (function(){
 "use strict";
 const KEY="pdx_medical_examiners_v1";
+const DEFAULTS=[
+{name:"Benton County ME",morgue:"No",phone:"541-766-6815",notes:""},
+{name:"Clackamas County ME",morgue:"Yes",phone:"503-655-8380",notes:""},
+{name:"Clark County ME",morgue:"Yes",phone:"564-397-8405",notes:""},
+{name:"Clatsop County ME",morgue:"No",phone:"503-325-8635",notes:""},
+{name:"Columbia County ME",morgue:"No",phone:"503-366-4611",notes:""},
+{name:"Cowlitz County ME",morgue:"Yes",phone:"360-577-3079",notes:""},
+{name:"Crook County ME",morgue:"Yes",phone:"541-447-6263",notes:""},
+{name:"Deschutes County ME",morgue:"",phone:"541-388-9883",notes:""},
+{name:"Douglas County ME",morgue:"",phone:"541-440-4453",notes:""},
+{name:"Jackson County ME",morgue:"",phone:"541-472-7188",notes:""},
+{name:"Josephine County ME",morgue:"",phone:"541-472-7188",notes:""},
+{name:"Klamath County ME",morgue:"",phone:"",notes:""},
+{name:"Lane County ME",morgue:"",phone:"541-682-4363",notes:""},
+{name:"Lincoln County ME",morgue:"No",phone:"541-265-0425",notes:""},
+{name:"Linn County ME",morgue:"",phone:"541-967-3836",notes:""},
+{name:"Marion County ME",morgue:"",phone:"503-588-5530",notes:""},
+{name:"Multnomah County ME",morgue:"Yes",phone:"503-988-0055",notes:""},
+{name:"Polk County ME",morgue:"",phone:"503-932-6140",notes:""},
+{name:"Tillamook Co ME",morgue:"No",phone:"503-842-3410",notes:""},
+{name:"Umatilla County ME",morgue:"",phone:"541-276-5951",notes:""},
+{name:"Union County ME",morgue:"",phone:"541-786-0317",notes:""},
+{name:"Wasco - Sherman County ME",morgue:"No",phone:"",notes:""},
+{name:"Washington County ME",morgue:"",phone:"503-846-3575",notes:""},
+{name:"Yamhill Co ME",morgue:"No",phone:"",notes:""}
+];
 let view=null,editingId=null;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function load(){try{const a=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(a)?a:[]}catch{return[]}}
+function seed(){let a=[];try{a=JSON.parse(localStorage.getItem(KEY)||"[]")}catch{}if(!Array.isArray(a))a=[];let changed=false;for(const d of DEFAULTS){if(!a.some(x=>String(x.name||"").toLowerCase()===d.name.toLowerCase())){a.push({id:"me_seed_"+d.name.toLowerCase().replace(/[^a-z0-9]+/g,"_"),...d});changed=true}}if(changed||!localStorage.getItem(KEY))localStorage.setItem(KEY,JSON.stringify(a))}
+function load(){seed();try{const a=JSON.parse(localStorage.getItem(KEY)||"[]");return Array.isArray(a)?a:[]}catch{return[]}}
 function store(a){localStorage.setItem(KEY,JSON.stringify(a))}
 function addStyle(){if(document.getElementById("meStyle"))return;const s=document.createElement("style");s.id="meStyle";s.textContent=`#meView{position:fixed;inset:0;z-index:1800;background:#f2f2f7;overflow:auto;color:#071f3e}#meView.hidden{display:none}.meHead{position:sticky;top:0;background:#08264b;color:white;padding:18px;display:flex;justify-content:space-between;align-items:center}.meHead h1{margin:0;font-size:24px}.meWrap{max-width:760px;margin:auto;padding:16px}.meCard{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px}.meInput,.meText{width:100%;box-sizing:border-box;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}.meText{min-height:90px}.meField{margin-top:12px}.meField label{display:block;font-size:12px;font-weight:800;margin-bottom:5px}.meRow{padding:14px 0;border-top:1px solid #e5e7eb}.meRow:first-child{border-top:0}.meName{font-size:18px;font-weight:850}.meMeta{margin-top:5px;font-size:14px;color:#52606f}.meNotes{white-space:pre-wrap}.meBtn{border:0;border-radius:10px;padding:11px 13px;font-weight:800}.mePrimary{background:#0b63ce;color:#fff}.meGray{background:#747b84;color:#fff}.meEdit{background:#eaf2fb;color:#0b4f9c}.meDanger{background:#fff0f0;color:#a51f1f}.meActions{display:flex;gap:8px;margin-top:10px}.meForm{display:none}.meForm.open{display:block}.meGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:600px){.meGrid{grid-template-columns:1fr}}`;document.head.appendChild(s)}
 function ensure(){if(view)return;addStyle();view=document.createElement("div");view.id="meView";view.className="hidden";view.innerHTML=`<div class="meHead"><h1>Medical Examiners</h1><button id="meClose" class="meBtn meGray">CLOSE</button></div><div class="meWrap"><div class="meCard"><input id="meSearch" class="meInput" type="search" placeholder="Search medical examiners…"></div><div class="meCard"><button id="meAdd" class="meBtn mePrimary">+ ADD MEDICAL EXAMINER</button><div id="meForm" class="meForm"><div class="meGrid"><div class="meField"><label>NAME</label><input id="meName" class="meInput"></div><div class="meField"><label>PHONE NUMBER</label><input id="mePhone" class="meInput" type="tel"></div></div><div class="meField"><label>MORGUE INFORMATION (OPTIONAL)</label><textarea id="meMorgue" class="meText"></textarea></div><div class="meField"><label>NOTES</label><textarea id="meNotes" class="meText"></textarea></div><div class="meActions"><button id="meSave" class="meBtn mePrimary">SAVE</button><button id="meCancel" class="meBtn meGray">CANCEL</button></div></div></div><div id="meList" class="meCard"></div></div>`;document.body.appendChild(view);view.querySelector("#meClose").onclick=()=>{view.classList.add("hidden");closeForm()};view.querySelector("#meAdd").onclick=()=>openForm();view.querySelector("#meCancel").onclick=closeForm;view.querySelector("#meSave").onclick=saveForm;view.querySelector("#meSearch").oninput=render;view.onclick=e=>{const edit=e.target.closest("[data-me-edit]");if(edit)openForm(edit.dataset.meEdit);const rem=e.target.closest("[data-me-remove]");if(rem)removeItem(rem.dataset.meRemove)}}
@@ -14,6 +41,6 @@ function saveForm(){const name=view.querySelector("#meName").value.trim();if(!na
 function removeItem(id){store(load().filter(x=>String(x.id)!==String(id)));render()}
 function render(){const q=view.querySelector("#meSearch").value.trim().toLowerCase();const rows=load().filter(d=>!q||[d.name,d.phone,d.morgue,d.notes].some(v=>String(v||"").toLowerCase().includes(q))).sort((a,b)=>String(a.name).localeCompare(String(b.name)));view.querySelector("#meList").innerHTML=rows.length?rows.map(d=>`<div class="meRow"><div class="meName">${esc(d.name)}</div>${d.phone?`<div class="meMeta"><b>Phone:</b> ${esc(d.phone)}</div>`:""}${d.morgue?`<div class="meMeta"><b>Morgue:</b> ${esc(d.morgue)}</div>`:""}${d.notes?`<div class="meMeta meNotes"><b>Notes:</b> ${esc(d.notes)}</div>`:""}<div class="meActions"><button class="meBtn meEdit" data-me-edit="${esc(d.id)}">EDIT</button><button class="meBtn meDanger" data-me-remove="${esc(d.id)}">REMOVE</button></div></div>`).join(""):'<div class="meMeta">No medical examiners added yet.</div>'}
 function placeInDirectories(){const b=document.getElementById("medicalExaminerBtn"),host=document.querySelector('[data-menu-section="directories"]');if(b&&host&&b.parentElement!==host)host.appendChild(b)}
-function install(){const head=document.querySelector("header .head")||document.querySelector("header");if(!head)return false;if(document.getElementById("medicalExaminerBtn")){placeInDirectories();return true}const b=document.createElement("button");b.id="medicalExaminerBtn";b.type="button";b.textContent="MEDICAL EXAMINERS";b.onclick=openView;head.appendChild(b);setTimeout(placeInDirectories,300);setTimeout(placeInDirectories,1200);return true}
+function install(){seed();const head=document.querySelector("header .head")||document.querySelector("header");if(!head)return false;if(document.getElementById("medicalExaminerBtn")){placeInDirectories();return true}const b=document.createElement("button");b.id="medicalExaminerBtn";b.type="button";b.textContent="MEDICAL EXAMINERS";b.onclick=openView;head.appendChild(b);setTimeout(placeInDirectories,300);setTimeout(placeInDirectories,1200);return true}
 let n=0;const t=setInterval(()=>{n++;if(install()||n>80)clearInterval(t)},200);setInterval(placeInDirectories,1500);
 })();
