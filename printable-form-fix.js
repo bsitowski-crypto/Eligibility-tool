@@ -1,15 +1,34 @@
 (function(){
   "use strict";
-  function text(el){return String(el?.textContent||el?.value||"").replace(/\s+/g," ").trim().toUpperCase()}
-  function isPrintableButton(el){const b=el?.closest?.("button,a,input[type=button],input[type=submit]");if(!b)return null;const t=text(b);return /PRINTABLE/.test(t)&&/FORM/.test(t)?b:null}
-  document.addEventListener("click",function(e){
-    const b=isPrintableButton(e.target);if(!b)return;
-    // Prevent stale/broken legacy click wiring from swallowing the tap on iOS Safari.
-    e.preventDefault();e.stopImmediatePropagation();
+  function label(el){return String(el?.textContent||el?.value||"").replace(/\s+/g," ").trim().toUpperCase()}
+  function isCasePrintButton(el){
+    const b=el?.closest?.("button,a,input[type=button],input[type=submit]");
+    if(!b)return null;
+    const t=label(b);
+    return (/PRINT CASE DOCUMENT/.test(t)||(/PRINTABLE/.test(t)&&/FORM/.test(t)))?b:null;
+  }
+  function runCasePrint(){
     try{
-      // Give the planner a chance to update any print-only values before opening print preview.
-      document.dispatchEvent(new Event("beforeprint"));
-    }catch{}
-    try{window.print()}catch(err){console.error("Printable form",err)}
+      if(typeof window.printCombinedCaseDocument==="function"){
+        window.printCombinedCaseDocument();
+        return;
+      }
+      const legacy=[...document.querySelectorAll("button,a,input[type=button],input[type=submit]")].find(x=>/PRINT CASE DOCUMENT/.test(label(x)));
+      const code=legacy?.getAttribute?.("onclick")||"";
+      if(code&&/printCombinedCaseDocument/.test(code)&&typeof printCombinedCaseDocument==="function"){
+        printCombinedCaseDocument();
+        return;
+      }
+      alert("The printable case form is not ready yet. Validate the recovery plan, then try again.");
+    }catch(err){
+      console.error("Print case document",err);
+      alert("Unable to open the printable case form: "+(err?.message||err));
+    }
+  }
+  document.addEventListener("click",function(e){
+    const b=isCasePrintButton(e.target);if(!b)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    runCasePrint();
   },true);
 })();
