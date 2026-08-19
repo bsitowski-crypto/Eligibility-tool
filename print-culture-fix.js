@@ -33,10 +33,27 @@
   }
   function replaceRow(label,value){
     const re=new RegExp("^"+label+"\\s*[:\\-]?\\s*(?:\\d+(?:\\s*\\/\\s*\\d+){0,3})\\s*$","i");
+    const countRe=/\d+(?:\s*\/\s*\d+){0,3}\s*$/;
     document.querySelectorAll("div,span,li,td,p").forEach(el=>{
       if(el.children.length>2)return;
       const t=txt(el); if(!re.test(t))return;
-      el.textContent=t.replace(/\d+(?:\s*\/\s*\d+){0,3}\s*$/,String(value));
+      const next=t.replace(countRe,String(value));
+
+      // Stay idempotent. Rewriting identical text retriggers the MutationObserver
+      // forever and can leave iOS Safari too busy to respond to the print tap.
+      if(next===t)return;
+
+      // Preserve the supply-row markup when the quantity has its own element.
+      // This also limits the mutation to the value that actually changed.
+      const leaves=[...el.querySelectorAll("strong,.qty,span,div")]
+        .filter(node=>!node.children.length&&/^\d+(?:\s*\/\s*\d+){0,3}$/.test(txt(node)));
+      const quantity=leaves[leaves.length-1];
+      if(quantity){
+        if(txt(quantity)!==String(value))quantity.textContent=String(value);
+        return;
+      }
+
+      el.textContent=next;
     });
   }
   function fix(){const n=total(); if(!n)return; replaceRow("TSB",n);replaceRow("Thio(?:glycollate)?",n)}
