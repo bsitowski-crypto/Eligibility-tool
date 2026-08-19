@@ -60,7 +60,9 @@
   const originalPrint=window.print;
   if(typeof originalPrint==="function"&&!originalPrint.__culturePrintFix){
     const wrapped=function(){fix();return originalPrint.apply(this,arguments)};
-    wrapped.__culturePrintFix=true;window.print=wrapped;
+    wrapped.__culturePrintFix=true;
+    wrapped.__pdxNativePrint=originalPrint.__pdxNativePrint||originalPrint;
+    window.print=wrapped;
   }
   window.addEventListener("beforeprint",fix);
   document.addEventListener("click",()=>{fix();setTimeout(fix,0);setTimeout(fix,50)},true);
