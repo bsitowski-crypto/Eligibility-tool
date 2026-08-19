@@ -880,17 +880,6 @@
       window.graftRuleReasons=wrapped;
     }
 
-    if(typeof window.buildSupplies==="function"&&!window.buildSupplies.__pdxMeCase){
-      const original=window.buildSupplies;
-      const wrapped=function(){
-        const result=original.apply(this,arguments);
-        appendSpecimenSupplies();
-        return result;
-      };
-      wrapped.__pdxMeCase=true;
-      window.buildSupplies=wrapped;
-    }
-
     if(typeof window.validateRecovery==="function"&&!window.validateRecovery.__pdxMeCase){
       const original=window.validateRecovery;
       const wrapped=function(){
