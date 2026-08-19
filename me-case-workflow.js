@@ -43,11 +43,10 @@
         other:false,
         otherText:""
       },
-      documentation:{investigatorNarrative:false,commLog:false},
+      documentation:{mdiLog:false,iTransplant:false,phone:false},
       stickerComplete:"",
       preAutopsy:{
         pickupConfirmed:"",
-        pickupLocation:"",
         documented:"",
         dropoffConfirmed:"",
         dropoffDateTime:""
@@ -79,7 +78,16 @@
   }
 
   function normalizeData(value){
-    return merge(defaults(),value||{});
+    const data=merge(defaults(),value||{});
+    const sourceDocs=value?.documentation;
+    const hasCurrentSource=sourceDocs&&["mdiLog","iTransplant","phone"]
+      .some(key=>Object.prototype.hasOwnProperty.call(sourceDocs,key));
+    // Preserve completed legacy cases: the former Investigator Narrative /
+    // Comm Log choices now roll forward to the MDI log option.
+    if(sourceDocs&&!hasCurrentSource&&(sourceDocs.investigatorNarrative||sourceDocs.commLog)){
+      data.documentation.mdiLog=true;
+    }
+    return data;
   }
 
   function byId(id){return document.getElementById(id)}
@@ -168,13 +176,13 @@
         otherText:value("meSpecOtherText")
       },
       documentation:{
-        investigatorNarrative:checked("meDocIN"),
-        commLog:checked("meDocCL")
+        mdiLog:checked("meDocMDI"),
+        iTransplant:checked("meDocITransplant"),
+        phone:checked("meDocPhone")
       },
       stickerComplete:value("meStickerComplete"),
       preAutopsy:{
         pickupConfirmed:value("mePrePickupConfirmed"),
-        pickupLocation:value("mePrePickupLocation"),
         documented:value("mePreDocumented"),
         dropoffConfirmed:value("mePreDropoffConfirmed"),
         dropoffDateTime:value("mePreDropoffDateTime")
@@ -222,11 +230,11 @@
     setChecked("meSpecCultures",data.specimens.cultures);
     setChecked("meSpecOther",data.specimens.other);
     setValue("meSpecOtherText",data.specimens.otherText);
-    setChecked("meDocIN",data.documentation.investigatorNarrative);
-    setChecked("meDocCL",data.documentation.commLog);
+    setChecked("meDocMDI",data.documentation.mdiLog);
+    setChecked("meDocITransplant",data.documentation.iTransplant);
+    setChecked("meDocPhone",data.documentation.phone);
     setValue("meStickerComplete",data.stickerComplete);
     setValue("mePrePickupConfirmed",data.preAutopsy.pickupConfirmed);
-    setValue("mePrePickupLocation",data.preAutopsy.pickupLocation);
     setValue("mePreDocumented",data.preAutopsy.documented);
     setValue("mePreDropoffConfirmed",data.preAutopsy.dropoffConfirmed);
     setValue("mePreDropoffDateTime",data.preAutopsy.dropoffDateTime);
@@ -390,8 +398,9 @@
           <div class="me-subsection">
             <div class="me-subtitle">Where is the ME information documented?</div>
             <div class="me-choice-grid">
-              <div class="check"><input id="meDocIN" type="checkbox"><label for="meDocIN">Investigator Narrative</label></div>
-              <div class="check"><input id="meDocCL" type="checkbox"><label for="meDocCL">Comm Log</label></div>
+              <div class="check"><input id="meDocMDI" type="checkbox"><label for="meDocMDI">MDI log</label></div>
+              <div class="check"><input id="meDocITransplant" type="checkbox"><label for="meDocITransplant">iTransplant</label></div>
+              <div class="check"><input id="meDocPhone" type="checkbox"><label for="meDocPhone">Phone</label></div>
             </div>
           </div>
 
@@ -407,10 +416,9 @@
           <div id="mePreAutopsyWrap" class="hidden">
             <div class="row">
               <div class="fg"><label for="mePrePickupConfirmed">Pickup location confirmed with investigator?</label><select id="mePrePickupConfirmed">${yesNoOptions()}</select></div>
-              <div class="fg"><label for="mePrePickupLocation">Pickup location</label><input id="mePrePickupLocation"></div>
             </div>
             <div class="row">
-              <div class="fg"><label for="mePreDocumented">Confirmation documented in Investigator Narrative/Comm Log?</label><select id="mePreDocumented">${yesNoOptions()}</select></div>
+              <div class="fg"><label for="mePreDocumented">Pickup confirmation recorded in the case documentation?</label><select id="mePreDocumented">${yesNoOptions()}</select></div>
               <div class="fg"><label for="mePreDropoffConfirmed">Drop-off time confirmed with SMEO?</label><select id="mePreDropoffConfirmed">${yesNoOptions()}</select></div>
             </div>
             <div class="fg"><label for="mePreDropoffDateTime">Confirmed drop-off date and time</label><input id="mePreDropoffDateTime" type="datetime-local"></div>
@@ -614,15 +622,14 @@
       }
     }
 
-    if(!data.documentation.investigatorNarrative&&!data.documentation.commLog){
-      errors.push("Select where the ME information is documented.");
+    if(!data.documentation.mdiLog&&!data.documentation.iTransplant&&!data.documentation.phone){
+      errors.push("Select where the ME information is documented: MDI log, iTransplant, or phone.");
     }
     if(data.stickerComplete!=="yes")errors.push("Complete the ME sticker before validation.");
 
     if(autopsyStatus==="before"){
       if(data.preAutopsy.pickupConfirmed!=="yes")errors.push("Confirm the pre-autopsy pickup location with the investigator.");
-      if(!data.preAutopsy.pickupLocation)errors.push("Enter the pre-autopsy pickup location.");
-      if(data.preAutopsy.documented!=="yes")errors.push("Document the pickup confirmation in the Investigator Narrative or Comm Log.");
+      if(data.preAutopsy.documented!=="yes")errors.push("Record the pickup confirmation in the case documentation.");
       if(data.preAutopsy.dropoffConfirmed!=="yes")errors.push("Confirm the drop-off time with SMEO.");
       if(!data.preAutopsy.dropoffDateTime)errors.push("Enter the confirmed SMEO drop-off date and time.");
     }else if(autopsyStatus==="after"){
@@ -726,12 +733,13 @@
     if(["with_restrictions","without_restrictions"].includes(data.clearance)){
       rows.push("ME specimens/documents: "+specimenLabels(data).join("; "));
       const sources=[];
-      if(data.documentation.investigatorNarrative)sources.push("Investigator Narrative");
-      if(data.documentation.commLog)sources.push("Comm Log");
+      if(data.documentation.mdiLog)sources.push("MDI log");
+      if(data.documentation.iTransplant)sources.push("iTransplant");
+      if(data.documentation.phone)sources.push("Phone");
       rows.push("ME documentation: "+sources.join(" + "));
       rows.push("ME sticker: "+(data.stickerComplete==="yes"?"Complete":"Incomplete"));
       if(autopsyStatus==="before"){
-        rows.push("Pre-autopsy pickup: "+data.preAutopsy.pickupLocation);
+        rows.push("Pre-autopsy pickup: Confirmed with investigator");
         rows.push("SMEO drop-off: "+data.preAutopsy.dropoffDateTime);
       }else if(autopsyStatus==="after"){
         rows.push("Post-autopsy pickup confirmed by: "+data.postAutopsy.confirmationContact);
