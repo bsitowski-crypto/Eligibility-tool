@@ -385,7 +385,7 @@
               <div class="row3">
                 <div class="fg"><label for="meHeartPathology">Heart pathology required?</label><select id="meHeartPathology">${yesNoOptions()}</select></div>
                 <div class="fg"><label for="meHeartSlides">Heart slides required?</label><select id="meHeartSlides">${yesNoOptions()}</select></div>
-                <div class="fg"><label for="meHeartTissueReturned">Heart tissue returned?</label><select id="meHeartTissueReturned">${yesNoOptions()}</select></div>
+                <div class="fg"><label for="meHeartTissueReturned">Return Residual Tissue?</label><select id="meHeartTissueReturned">${yesNoOptions()}</select></div>
               </div>
             </div>
 
@@ -616,7 +616,7 @@
       }
       if(!data.specimens.heartPathology)errors.push("Answer whether heart pathology is required.");
       if(!data.specimens.heartSlides)errors.push("Answer whether heart slides are required.");
-      if(!data.specimens.heartTissueReturned)errors.push("Answer whether heart tissue is returned.");
+      if(!data.specimens.heartTissueReturned)errors.push("Answer whether residual tissue should be returned.");
       if(data.specimens.other&&!data.specimens.otherText){
         errors.push("Describe the other required ME specimen or document.");
       }
@@ -707,7 +707,7 @@
     if(s.vitreous)labels.push("Vitreous");
     labels.push("Heart pathology required: "+(s.heartPathology==="yes"?"Yes":"No"));
     labels.push("Heart slides required: "+(s.heartSlides==="yes"?"Yes":"No"));
-    labels.push("Heart tissue returned: "+(s.heartTissueReturned==="yes"?"Yes":"No"));
+    labels.push("Return Residual Tissue: "+(s.heartTissueReturned==="yes"?"Yes":"No"));
     if(s.photos)labels.push("Photos");
     if(s.serology)labels.push("Serology results");
     if(s.physicalAssessment)labels.push("Physical Assessment");
