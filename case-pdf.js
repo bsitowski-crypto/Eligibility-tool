@@ -10,7 +10,9 @@
   const CONTENT_HEIGHT=CONTENT_TOP-CONTENT_BOTTOM;
   const CONTENT_WIDTH=PAGE_WIDTH-(MARGIN*2);
   const COLUMN_GAP=14;
-  const LEFT_WIDTH=360;
+  // The case narrative is usually much denser than the pull list. Give it
+  // more room while keeping the supply quantity column easy to scan.
+  const LEFT_WIDTH=430;
   const RIGHT_X=MARGIN+LEFT_WIDTH+COLUMN_GAP;
   const RIGHT_WIDTH=CONTENT_WIDTH-LEFT_WIDTH-COLUMN_GAP;
 

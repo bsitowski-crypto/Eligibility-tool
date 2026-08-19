@@ -9,6 +9,14 @@
     "purple top blood tube",
     "green top blood tube"
   ]);
+  const BONE_TENDON_IDS=new Set([
+    "humerus","radius","ulna","femur","tibia","fibula",
+    "achilles","hemi","antTib","postTib","gracilis",
+    "semitendinosus","peroneus","kneeBlock","armBlock",
+    "freshHumerus","freshProxHumerus","freshProxFemur",
+    "freshKnee","freshAnkle","silvieElbow","cartilage","calvarium"
+  ]);
+  const HEART_IDS=new Set(["heartArtivion","heartLeMaitre"]);
 
   function key(value){
     return String(value||"")
@@ -23,6 +31,41 @@
     const category=key(item?.c);
     const name=key(item?.n);
     return category==="me specimens"||ME_NAMES.has(name);
+  }
+
+  function recoveryIds(recovery){
+    const values=Array.isArray(recovery)?recovery:
+      [...(Array.isArray(recovery?.selected)?recovery.selected:[]),
+        ...(Array.isArray(recovery?.sides)?recovery.sides:[])];
+    return [...new Set(values.map(value=>String(value||"").trim())
+      .filter(Boolean)
+      .map(value=>value.replace(/^ocaStd_/,"").replace(/_(left|right)$/,"")))];
+  }
+
+  function cordClampCount(recovery){
+    const ids=recoveryIds(recovery);
+    const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
+    const hasHeart=ids.some(id=>HEART_IDS.has(id));
+    return (hasBoneOrTendon?4:0)+(hasHeart?1:0);
+  }
+
+  function applyCordClampRule(items,recovery){
+    if(!Array.isArray(items))return items;
+    const count=cordClampCount(recovery);
+    const output=items
+      .filter(item=>!key(item?.n).startsWith("cord clamp"))
+      .map(item=>Object.assign({},item));
+    if(count){
+      const ids=recoveryIds(recovery);
+      const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
+      const hasHeart=ids.some(id=>HEART_IDS.has(id));
+      const note=[
+        hasBoneOrTendon?"4 for bone/tendon recovery":"",
+        hasHeart?"1 for heart recovery":""
+      ].filter(Boolean).join(" + ");
+      output.push({c:"Supplies",n:"Cord Clamps",q:count,note});
+    }
+    return output;
   }
 
   function rank(item){
@@ -128,11 +171,12 @@
     ).join("")+'</div>';
   }
 
-  function reorderCurrent(){
+  function reorderCurrent(recovery,applyClampRule){
     let items;
     try{items=latestSupplyItems}catch{return []}
     if(!Array.isArray(items))return [];
-    const ordered=orderItems(items);
+    const corrected=applyClampRule?applyCordClampRule(items,recovery):items;
+    const ordered=orderItems(corrected);
     items.splice(0,items.length,...ordered);
     render(items);
     return items;
@@ -142,9 +186,13 @@
     const original=root.buildSupplies;
     if(typeof original!=="function"||original.__pdxSupplyOrderFix)return false;
 
-    const wrapped=function(){
+    const wrapped=function(recovery){
       const result=original.apply(this,arguments);
-      reorderCurrent();
+      let current=recovery;
+      if(!current){
+        try{current=typeof getRecovery==="function"?getRecovery():null}catch{}
+      }
+      reorderCurrent(current,Boolean(current));
       return result;
     };
     wrapped.__pdxSupplyOrderFix=true;
@@ -162,7 +210,7 @@
     return true;
   }
 
-  const api={key,isMeSupply,rank,orderItems};
+  const api={key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,applyCordClampRule};
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 

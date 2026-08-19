@@ -840,10 +840,22 @@
     const left=sheet?.querySelector(".print-case-left");
     if(!left)return;
     left.querySelector("[data-me-case-print]")?.remove();
+
+    const autopsy=value("autopsy");
+    const timing=autopsy==="before"?"Pre-autopsy recovery":
+      autopsy==="after"?"Post-autopsy recovery":"";
+    if(timing){
+      const autopsyRow=[...left.querySelectorAll(".print-info > div")]
+        .find(row=>/^Autopsy\s*:/i.test(String(row.textContent||"").trim()));
+      if(autopsyRow){
+        autopsyRow.innerHTML=`<strong>Recovery timing:</strong> ${timing}`;
+      }
+    }
+
     const section=document.createElement("div");
     section.className="print-section";
     section.dataset.meCasePrint="1";
-    const rows=summaryRows(activeData(),value("autopsy"));
+    const rows=summaryRows(activeData(),autopsy);
     section.innerHTML=`<h3>Medical Examiner Case</h3><div class="print-info">${rows.map(row=>`<div>${escapeHtml(row)}</div>`).join("")}</div>`;
     left.insertBefore(section,left.children[1]||null);
   }
