@@ -36,13 +36,18 @@
       const surgical=String(info?.surgical||"").trim();
       if(!surgical||surgical==="Not recorded")continue;
 
-      const expected=initials+" — Size "+surgical;
-      const row=items.find(item=>String(item?.n||"").trim()===expected);
+      // Match on technician and surgical size without depending on the dash
+      // character used by the core pull-list label. This remains reliable if
+      // a browser or CDN decodes that punctuation differently.
+      const row=items.find(item=>{
+        const name=String(item?.n||"").trim();
+        return name.startsWith(initials+" ")&&name.endsWith("Size "+surgical);
+      });
       if(!row||!Number.isFinite(Number(row.q)))continue;
 
       row.q=Number(row.q)+extra;
       const notes=[row.note,note].filter(Boolean);
-      row.note=[...new Set(notes)].join(" • ");
+      row.note=[...new Set(notes)].join(" / ");
     }
     return items;
   }
