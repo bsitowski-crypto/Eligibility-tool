@@ -3,6 +3,10 @@
 
   const PAGE_WIDTH=792;
   const PAGE_HEIGHT=612;
+  const MARGIN=28;
+  const CONTENT_WIDTH=PAGE_WIDTH-(MARGIN*2);
+  const CONTENT_TOP=PAGE_HEIGHT-96;
+  const CONTENT_BOTTOM=34;
 
   function clean(value){
     return String(value??"")
@@ -13,39 +17,44 @@
       .trim();
   }
 
-  function fitText(font,text,size,maxWidth){
-    const value=clean(text);
-    if(font.widthOfTextAtSize(value,size)<=maxWidth)return value;
-    const suffix="...";
-    let lo=0,hi=value.length;
-    while(lo<hi){
-      const mid=Math.ceil((lo+hi)/2);
-      if(font.widthOfTextAtSize(value.slice(0,mid)+suffix,size)<=maxWidth)lo=mid;
-      else hi=mid-1;
-    }
-    return value.slice(0,lo)+suffix;
-  }
-
-  function graftLines(groups){
+  function wrapText(font,value,size,maxWidth){
+    const text=clean(value);
+    if(!text)return [];
     const lines=[];
-    for(const group of groups||[]){
-      const items=(group.items||[]).map(clean).filter(Boolean);
-      if(!items.length)continue;
-      lines.push({text:clean(group.label).toUpperCase(),bold:true,label:clean(group.label).toUpperCase()});
-      for(const item of items)lines.push({text:"- "+item,bold:false,label:clean(group.label).toUpperCase()});
-    }
-    return lines;
-  }
+    let current="";
 
-  function splitGraftLines(lines){
-    if(lines.length<2)return [lines,[]];
-    const at=Math.ceil(lines.length/2);
-    const left=lines.slice(0,at);
-    const right=lines.slice(at);
-    if(right.length&& !right[0].bold){
-      right.unshift({text:right[0].label,bold:true,label:right[0].label});
+    function pushLongWord(word){
+      let chunk="";
+      for(const character of word){
+        const candidate=chunk+character;
+        if(chunk&&font.widthOfTextAtSize(candidate,size)>maxWidth){
+          lines.push(chunk);
+          chunk=character;
+        }else{
+          chunk=candidate;
+        }
+      }
+      current=chunk;
     }
-    return [left,right];
+
+    for(const word of text.split(" ")){
+      if(!current){
+        if(font.widthOfTextAtSize(word,size)>maxWidth)pushLongWord(word);
+        else current=word;
+        continue;
+      }
+      const candidate=current+" "+word;
+      if(font.widthOfTextAtSize(candidate,size)<=maxWidth){
+        current=candidate;
+      }else{
+        lines.push(current);
+        current="";
+        if(font.widthOfTextAtSize(word,size)>maxWidth)pushLongWord(word);
+        else current=word;
+      }
+    }
+    if(current)lines.push(current);
+    return lines;
   }
 
   async function createCasePdf(data){
@@ -59,7 +68,6 @@
 
     const regular=await pdf.embedFont(StandardFonts.Helvetica);
     const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
-    const page=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);
     const navy=rgb(7/255,31/255,62/255);
     const blue=rgb(11/255,99/255,206/255);
     const purple=rgb(111/255,66/255,193/255);
@@ -67,126 +75,145 @@
     const muted=rgb(90/255,90/255,96/255);
     const line=rgb(214/255,214/255,220/255);
     const pale=rgb(247/255,247/255,249/255);
-
-    page.drawRectangle({x:0,y:PAGE_HEIGHT-48,width:PAGE_WIDTH,height:48,color:navy});
-    page.drawText("PDX RECOVERY PLANNER",{x:28,y:PAGE_HEIGHT-29,size:15,font:bold,color:rgb(1,1,1)});
-    page.drawText("CASE DOCUMENT",{x:PAGE_WIDTH-145,y:PAGE_HEIGHT-28,size:10,font:bold,color:rgb(1,1,1)});
-
-    const generated=clean(data.generated||new Date().toLocaleString());
+    const white=rgb(1,1,1);
     const donor=clean(data.donor||"Case document");
-    page.drawText(fitText(bold,donor,10,330),{x:28,y:PAGE_HEIGHT-64,size:10,font:bold,color:navy});
-    page.drawText(fitText(regular,"Prepared "+generated,7.5,250),{x:PAGE_WIDTH-278,y:PAGE_HEIGHT-63,size:7.5,font:regular,color:muted});
+    const generated=clean(data.generated||new Date().toLocaleString());
+    let pageNumber=0;
+    let state=null;
 
-    const leftX=28;
-    const leftWidth=338;
-    const dividerX=380;
-    const rightX=397;
-    const rightWidth=367;
-    const contentTop=PAGE_HEIGHT-78;
-    const contentBottom=32;
+    function addPage(label){
+      const page=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);
+      pageNumber++;
+      page.drawRectangle({x:0,y:PAGE_HEIGHT-48,width:PAGE_WIDTH,height:48,color:navy});
+      page.drawText("PDX RECOVERY PLANNER",{x:MARGIN,y:PAGE_HEIGHT-29,size:15,font:bold,color:white});
+      const header=clean(label).toUpperCase();
+      page.drawText(header,{x:PAGE_WIDTH-MARGIN-bold.widthOfTextAtSize(header,9.5),y:PAGE_HEIGHT-28,size:9.5,font:bold,color:white});
 
-    page.drawLine({start:{x:dividerX,y:contentBottom},end:{x:dividerX,y:contentTop+5},thickness:1,color:line});
+      const donorLines=wrapText(bold,donor,9.5,455);
+      donorLines.forEach((text,index)=>page.drawText(text,{x:MARGIN,y:PAGE_HEIGHT-64-(index*10.5),size:9.5,font:bold,color:navy}));
+      const preparedLines=wrapText(regular,"Prepared "+generated,7.4,235);
+      preparedLines.forEach((text,index)=>page.drawText(text,{x:PAGE_WIDTH-MARGIN-235,y:PAGE_HEIGHT-63-(index*9),size:7.4,font:regular,color:muted}));
+
+      page.drawLine({start:{x:MARGIN,y:22},end:{x:PAGE_WIDTH-MARGIN,y:22},thickness:.6,color:line});
+      page.drawText("Generated by PDX Recovery Planner",{x:MARGIN,y:10,size:6.5,font:regular,color:muted});
+      const pageLabel="Page "+pageNumber;
+      page.drawText(pageLabel,{x:PAGE_WIDTH-MARGIN-bold.widthOfTextAtSize(pageLabel,6.5),y:10,size:6.5,font:bold,color:muted});
+      return {page,y:CONTENT_TOP,label};
+    }
+
+    function drawSectionHeader(title,continued){
+      const label=clean(title)+(continued?" (continued)":"");
+      const titleLines=wrapText(bold,label.toUpperCase(),9.2,CONTENT_WIDTH-14);
+      const height=Math.max(18,(titleLines.length*10.5)+6);
+      state.page.drawRectangle({x:MARGIN,y:state.y-height+4,width:CONTENT_WIDTH,height,color:pale});
+      state.page.drawRectangle({x:MARGIN,y:state.y-height+4,width:3,height,color:purple});
+      titleLines.forEach((text,index)=>state.page.drawText(text,{x:MARGIN+8,y:state.y-(index*10.5),size:9.2,font:bold,color:navy}));
+      state.y-=height+3;
+    }
+
+    function continueCaseSection(title,minimumHeight){
+      if(state.y-minimumHeight>=CONTENT_BOTTOM)return;
+      state=addPage("Case details");
+      drawSectionHeader(title,true);
+    }
+
+    function drawCaseRow(row,sectionTitle){
+      const lines=wrapText(regular,row,8.25,CONTENT_WIDTH-8);
+      for(const text of lines){
+        continueCaseSection(sectionTitle,12);
+        state.page.drawText(text,{x:MARGIN+4,y:state.y,size:8.25,font:regular,color:ink});
+        state.y-=10.4;
+      }
+      continueCaseSection(sectionTitle,4);
+      state.page.drawLine({start:{x:MARGIN,y:state.y+2},end:{x:MARGIN+CONTENT_WIDTH,y:state.y+2},thickness:.35,color:line});
+      state.y-=3;
+    }
+
+    function drawGroupLabel(label,sectionTitle){
+      const lines=wrapText(bold,clean(label).toUpperCase(),8,CONTENT_WIDTH-8);
+      for(const text of lines){
+        continueCaseSection(sectionTitle,11);
+        state.page.drawText(text,{x:MARGIN+4,y:state.y,size:8,font:bold,color:blue});
+        state.y-=9.8;
+      }
+    }
+
+    function drawGroupItem(item,sectionTitle){
+      const lines=wrapText(regular,"- "+item,7.8,CONTENT_WIDTH-18);
+      for(const text of lines){
+        continueCaseSection(sectionTitle,10.5);
+        state.page.drawText(text,{x:MARGIN+12,y:state.y,size:7.8,font:regular,color:ink});
+        state.y-=9.5;
+      }
+    }
 
     const sections=(data.sections||[]).map(section=>({
       title:clean(section.title),
       rows:(section.rows||[]).map(clean).filter(Boolean),
-      groups:(section.groups||[]).map(group=>({label:clean(group.label),items:(group.items||[]).map(clean).filter(Boolean)}))
-    }));
+      groups:(section.groups||[]).map(group=>({
+        label:clean(group.label),
+        items:(group.items||[]).map(clean).filter(Boolean)
+      })).filter(group=>group.label&&group.items.length)
+    })).filter(section=>section.title);
 
-    let estimated=0;
+    state=addPage("Case details");
+    if(!sections.length){
+      state.page.drawText("No case details were generated.",{x:MARGIN,y:state.y,size:9,font:regular,color:muted});
+    }
     for(const section of sections){
-      estimated+=17;
-      estimated+=Math.ceil(section.rows.length/2)*9.2;
-      const gl=graftLines(section.groups);
-      estimated+=Math.ceil(gl.length/2)*8.4;
-    }
-    const available=contentTop-contentBottom;
-    const scale=Math.min(1,available/Math.max(estimated,1));
-    const headingSize=Math.max(8.2,10*scale);
-    const rowSize=Math.max(5.9,7.35*scale);
-    const rowHeight=Math.max(7,9.2*scale);
-    const groupSize=Math.max(5.8,7.1*scale);
-    const groupHeight=Math.max(6.8,8.4*scale);
-    const sectionGap=Math.max(5,8*scale);
-
-    let y=contentTop;
-    for(const section of sections){
-      if(!section.title)continue;
-      page.drawRectangle({x:leftX,y:y-3,width:leftWidth,height:headingSize+7,color:pale});
-      page.drawRectangle({x:leftX,y:y-3,width:3,height:headingSize+7,color:purple});
-      page.drawText(fitText(bold,section.title.toUpperCase(),headingSize,leftWidth-12),{
-        x:leftX+8,y:y,size:headingSize,font:bold,color:navy
-      });
-      y-=headingSize+9;
-
-      if(section.rows.length){
-        const colGap=10;
-        const colWidth=(leftWidth-colGap)/2;
-        for(let i=0;i<section.rows.length;i+=2){
-          const first=section.rows[i];
-          const second=section.rows[i+1];
-          page.drawText(fitText(regular,first,rowSize,colWidth-3),{x:leftX,y,size:rowSize,font:regular,color:ink});
-          if(second)page.drawText(fitText(regular,second,rowSize,colWidth-3),{x:leftX+colWidth+colGap,y,size:rowSize,font:regular,color:ink});
-          page.drawLine({start:{x:leftX,y:y-2},end:{x:leftX+leftWidth,y:y-2},thickness:.35,color:line});
-          y-=rowHeight;
-        }
+      if(state.y-22<CONTENT_BOTTOM)state=addPage("Case details");
+      drawSectionHeader(section.title,false);
+      section.rows.forEach(row=>drawCaseRow(row,section.title));
+      for(const group of section.groups){
+        continueCaseSection(section.title,22);
+        drawGroupLabel(group.label,section.title);
+        group.items.forEach(item=>drawGroupItem(item,section.title));
+        state.y-=3;
       }
-
-      const lines=graftLines(section.groups);
-      if(lines.length){
-        const [firstCol,secondCol]=splitGraftLines(lines);
-        const colGap=12;
-        const colWidth=(leftWidth-colGap)/2;
-        const startY=y;
-        function drawGraftColumn(items,x){
-          let gy=startY;
-          for(const item of items){
-            const font=item.bold?bold:regular;
-            const color=item.bold?blue:ink;
-            page.drawText(fitText(font,item.text,groupSize,colWidth-2),{x,y:gy,size:groupSize,font,color});
-            gy-=groupHeight;
-          }
-          return gy;
-        }
-        const y1=drawGraftColumn(firstCol,leftX);
-        const y2=drawGraftColumn(secondCol,leftX+colWidth+colGap);
-        y=Math.min(y1,y2);
-      }
-      y-=sectionGap;
+      state.y-=7;
     }
 
-    page.drawRectangle({x:rightX,y:contentTop-3,width:rightWidth,height:17,color:navy});
-    page.drawText("SUPPLIES TO PULL / LOG",{x:rightX+8,y:contentTop+1,size:9.5,font:bold,color:rgb(1,1,1)});
+    const supplies=(data.supplies||[]).map(item=>({
+      name:clean(item.name),
+      qty:clean(item.qty)
+    })).filter(item=>item.name);
 
-    const supplies=(data.supplies||[]).map(item=>({name:clean(item.name),qty:clean(item.qty)})).filter(item=>item.name);
-    const perColumn=Math.max(1,Math.ceil(supplies.length/2));
-    const supplyTop=contentTop-21;
-    const supplyBottom=contentBottom;
-    const supplyAvailable=supplyTop-supplyBottom;
-    const supplyRowHeight=Math.min(10,Math.max(6.8,supplyAvailable/perColumn));
-    const supplySize=Math.min(7.4,Math.max(5.5,supplyRowHeight-2));
-    const supplyGap=12;
-    const supplyColWidth=(rightWidth-supplyGap)/2;
-
-    function drawSupplyColumn(items,x){
-      let sy=supplyTop;
-      for(let i=0;i<items.length;i++){
-        const item=items[i];
-        if(i%2===0)page.drawRectangle({x,y:sy-2,width:supplyColWidth,height:supplyRowHeight,color:pale});
-        const qtyWidth=Math.max(22,bold.widthOfTextAtSize(item.qty,supplySize)+5);
-        page.drawText(fitText(regular,item.name,supplySize,supplyColWidth-qtyWidth-7),{x:x+3,y:sy,size:supplySize,font:regular,color:ink});
-        page.drawText(fitText(bold,item.qty,supplySize,qtyWidth),{x:x+supplyColWidth-qtyWidth,y:sy,size:supplySize,font:bold,color:navy});
-        page.drawLine({start:{x,y:sy-2},end:{x:x+supplyColWidth,y:sy-2},thickness:.3,color:line});
-        sy-=supplyRowHeight;
-      }
+    function drawSupplyTableHeader(){
+      state.page.drawRectangle({x:MARGIN,y:state.y-3,width:CONTENT_WIDTH,height:18,color:navy});
+      state.page.drawText("SUPPLY",{x:MARGIN+7,y:state.y+1,size:8.5,font:bold,color:white});
+      const qty="QUANTITY";
+      state.page.drawText(qty,{x:MARGIN+CONTENT_WIDTH-7-bold.widthOfTextAtSize(qty,8.5),y:state.y+1,size:8.5,font:bold,color:white});
+      state.y-=24;
     }
 
-    drawSupplyColumn(supplies.slice(0,perColumn),rightX);
-    drawSupplyColumn(supplies.slice(perColumn),rightX+supplyColWidth+supplyGap);
+    function continueSupplies(minimumHeight){
+      if(state.y-minimumHeight>=CONTENT_BOTTOM)return;
+      state=addPage("Supplies to pull / log");
+      drawSupplyTableHeader();
+    }
 
-    page.drawLine({start:{x:28,y:22},end:{x:PAGE_WIDTH-28,y:22},thickness:.6,color:line});
-    page.drawText("Generated by PDX Recovery Planner",{x:28,y:10,size:6.5,font:regular,color:muted});
-    page.drawText("Verify case details before recovery.",{x:PAGE_WIDTH-180,y:10,size:6.5,font:regular,color:muted});
+    state=addPage("Supplies to pull / log");
+    drawSupplyTableHeader();
+    if(!supplies.length){
+      state.page.drawText("No supplies were generated.",{x:MARGIN+4,y:state.y,size:9,font:regular,color:muted});
+    }
+    supplies.forEach((item,index)=>{
+      const qtyWidth=82;
+      const nameLines=wrapText(regular,item.name,8.2,CONTENT_WIDTH-qtyWidth-18);
+      const qtyLines=wrapText(bold,item.qty,8.2,qtyWidth-8);
+      const rowLines=Math.max(nameLines.length,qtyLines.length,1);
+      const rowHeight=(rowLines*10)+6;
+      continueSupplies(rowHeight);
+      if(index%2===0)state.page.drawRectangle({x:MARGIN,y:state.y-rowHeight+4,width:CONTENT_WIDTH,height:rowHeight,color:pale});
+      nameLines.forEach((text,lineIndex)=>state.page.drawText(text,{x:MARGIN+5,y:state.y-(lineIndex*10),size:8.2,font:regular,color:ink}));
+      qtyLines.forEach((text,lineIndex)=>state.page.drawText(text,{
+        x:MARGIN+CONTENT_WIDTH-5-bold.widthOfTextAtSize(text,8.2),
+        y:state.y-(lineIndex*10),
+        size:8.2,font:bold,color:navy
+      }));
+      state.y-=rowHeight;
+      state.page.drawLine({start:{x:MARGIN,y:state.y+4},end:{x:MARGIN+CONTENT_WIDTH,y:state.y+4},thickness:.35,color:line});
+    });
 
     return pdf.save();
   }
