@@ -260,6 +260,8 @@
       #meCaseWorkflow .me-subsection{margin-top:14px;padding-top:12px;border-top:1px solid #d6e1ee}
       #meCaseWorkflow .me-subtitle{font-weight:850;margin-bottom:8px;color:#0b4f9c}
       #meCaseWorkflow .me-contact{padding:10px;border-radius:10px;background:#eaf2fb;margin-top:8px;font-size:13px;white-space:pre-wrap}
+      #meCaseWorkflow .me-directory-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+      #meCaseWorkflow .me-directory-button{border:1px solid #a9c4e2;border-radius:9px;background:#fff;color:#0b4f9c;padding:8px 10px;font:inherit;font-size:12px;font-weight:850}
       #meCaseWorkflow .me-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
       #meCaseWorkflow .me-choice-grid .check{margin:0}
       #meCaseWorkflow .me-tube-row{display:grid;grid-template-columns:minmax(150px,1fr) 100px;gap:8px;align-items:center;margin:7px 0}
@@ -295,6 +297,7 @@
             <label for="meOffice">Medical Examiner office</label>
             <input id="meOffice" list="meOfficeList" autocomplete="off" placeholder="Start typing an ME office...">
             <datalist id="meOfficeList"></datalist>
+            <div class="me-directory-tools"><button id="meManageDirectory" class="me-directory-button" type="button">EDIT ME DIRECTORY</button><span class="small">Update phone, morgue information, or notes.</span></div>
             <div id="meOfficeInfo" class="me-contact hidden"></div>
           </div>
           <div class="fg">
@@ -448,6 +451,23 @@
     panel.addEventListener("change",handleChange,true);
     panel.addEventListener("input",handleInput,true);
     byId("meOffice")?.addEventListener("focus",refreshDirectoryOptions);
+    byId("meManageDirectory")?.addEventListener("click",function(){
+      if(window.PDXMedicalExaminerDirectory?.open){
+        window.PDXMedicalExaminerDirectory.open();
+      }else{
+        byId("medicalExaminerBtn")?.click();
+      }
+    });
+    window.addEventListener("pdx:me-directory-changed",function(event){
+      const current=collect();
+      const selectedId=String(current.officeSnapshot?.id||"");
+      const records=Array.isArray(event.detail?.records)?event.detail.records:[];
+      const renamed=selectedId?records.find(record=>String(record.id||"")===selectedId):null;
+      if(renamed&&value("meOffice"))setValue("meOffice",renamed.name);
+      refreshDirectoryOptions();
+      captureCurrent(false);
+      renderOffice(collect());
+    });
     byId("autopsy")?.addEventListener("change",function(){
       captureCurrent(false);
       render(collect());

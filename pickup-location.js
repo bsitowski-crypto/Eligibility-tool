@@ -1,5 +1,6 @@
 (function(){
   "use strict";
+  const root=typeof window!=="undefined"?window:globalThis;
   let installed=false,lastActiveId=null;
   function clean(v){return String(v||"").trim()}
   function key(v){return clean(v).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[’'`´]/g,"").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ")}
@@ -29,8 +30,17 @@
     const hint=document.getElementById("pickupLocationHint");
     if(hint)hint.textContent=v.type==="h"?"Hospital":v.type==="f"?"Funeral Home":"Search hospitals and funeral homes";
   }
-  function selectLocation(type,id){
-    const d=donor(),all=getDirs(),list=type==="h"?(all.hospitals||[]):(all.funerals||[]),x=list.find(r=>String(r.id)===String(id));
+  function findRecord(list,id,name){
+    const records=Array.isArray(list)?list:[];
+    if(String(id||"").trim()){
+      const byId=records.find(record=>String(record.id||"")===String(id));
+      if(byId)return byId;
+    }
+    const target=key(name);
+    return target?records.find(record=>key(record.name)===target)||null:null;
+  }
+  function selectLocation(type,id,name){
+    const d=donor(),all=getDirs(),list=type==="h"?(all.hospitals||[]):(all.funerals||[]),x=findRecord(list,id,name);
     if(!d||!x)return;
     const h=document.getElementById("referralSource"),f=document.getElementById("funeralHome");
     if(type==="h"){
@@ -59,7 +69,7 @@
     }
     rows.sort((a,b)=>String(a.x.name||"").localeCompare(String(b.x.name||"")));
     const hits=rows.slice(0,18);
-    box.innerHTML=hits.map(r=>`<div class="sug pickup-sug" data-pickup-type="${r.type}" data-pickup-id="${esc(r.x.id)}"><strong>${esc(r.x.name)}</strong><span><b>${r.type==="h"?"HOSPITAL":"FUNERAL HOME"}</b>${r.where?` · ${esc(r.where)}`:""}${r.type==="f"&&r.x.ctms?` · CTMS ${esc(r.x.ctms)}`:""}</span></div>`).join("");
+    box.innerHTML=hits.map(r=>`<div class="sug pickup-sug" data-pickup-type="${r.type}" data-pickup-id="${esc(r.x.id)}" data-pickup-name="${esc(r.x.name)}"><strong>${esc(r.x.name)}</strong><span><b>${r.type==="h"?"HOSPITAL":"FUNERAL HOME"}</b>${r.where?` · ${esc(r.where)}`:""}${r.type==="f"&&r.x.ctms?` · CTMS ${esc(r.x.ctms)}`:""}</span></div>`).join("");
     box.classList.toggle("hidden",!hits.length);
   }
   function install(){
@@ -74,11 +84,16 @@
     input.addEventListener("input",()=>{input.dataset.pickupType="";suggestions()});
     input.addEventListener("focus",()=>{if(input.value.trim())suggestions()});
     input.addEventListener("blur",()=>setTimeout(()=>box.classList.add("hidden"),180));
-    box.addEventListener("pointerdown",e=>{const item=e.target.closest("[data-pickup-type][data-pickup-id]");if(!item)return;e.preventDefault();selectLocation(item.dataset.pickupType,item.dataset.pickupId)});
-    box.addEventListener("click",e=>{const item=e.target.closest("[data-pickup-type][data-pickup-id]");if(!item)return;e.preventDefault();selectLocation(item.dataset.pickupType,item.dataset.pickupId)});
+    box.addEventListener("pointerdown",e=>{const item=e.target.closest("[data-pickup-type][data-pickup-name]");if(!item)return;e.preventDefault();selectLocation(item.dataset.pickupType,item.dataset.pickupId,item.dataset.pickupName)});
+    box.addEventListener("click",e=>{const item=e.target.closest("[data-pickup-type][data-pickup-name]");if(!item)return;e.preventDefault();selectLocation(item.dataset.pickupType,item.dataset.pickupId,item.dataset.pickupName)});
     installed=true;syncFromDonor(true);
     return true;
   }
-  let tries=0;const timer=setInterval(()=>{tries++;if(install()||tries>60)clearInterval(timer)},200);
-  setInterval(()=>{if(!installed)return;let id=null;try{id=activeId}catch{};if(id!==lastActiveId)syncFromDonor(true)},500);
+  const api={key,findRecord};
+  root.PDXPickupLocation=api;
+  if(typeof module!=="undefined"&&module.exports)module.exports=api;
+  if(typeof window!=="undefined"&&typeof document!=="undefined"){
+    let tries=0;const timer=setInterval(()=>{tries++;if(install()||tries>60)clearInterval(timer)},200);
+    setInterval(()=>{if(!installed)return;let id=null;try{id=activeId}catch{};if(id!==lastActiveId)syncFromDonor(true)},500);
+  }
 })();
