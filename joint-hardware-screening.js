@@ -157,7 +157,7 @@
     try{
       const deferred=grafts.filter(g=>g.group==="internal"&&!g.skin && !(a<=40&&g.oca));
       for(const g of deferred){
-        const probes=[document.getElementById("recover_"+g.id),document.getElementById(g.id+"_left"),document.getElementById(g.id+"_right")].filter(Boolean);
+        const probes=[document.getElementById("recover_"+g.id),document.getElementById(g.id+"_left"),document.getElementById(g.id+"_right"),document.getElementById("bilateral_"+g.id+"_left"),document.getElementById("bilateral_"+g.id+"_right")].filter(Boolean);
         probes.forEach(p=>{const row=p.closest(".proc,.check,.radio"); if(row){const proc=p.closest(".proc");(proc||row).remove()}});
         if(typeof lastRuledOut!=="undefined"&&!lastRuledOut.some(x=>x.id===g.id))lastRuledOut.push({id:g.id,name:g.name,reasons:["Joint replacement / hardware rule: defer MS tissue."]});
       }

@@ -39,7 +39,7 @@
         ...(Array.isArray(recovery?.sides)?recovery.sides:[])];
     return [...new Set(values.map(value=>String(value||"").trim())
       .filter(Boolean)
-      .map(value=>value.replace(/^ocaStd_/,"").replace(/_(left|right)$/,"")))];
+      .map(value=>value.replace(/^bilateral_/,"").replace(/^ocaStd_/,"").replace(/_(left|right)$/,"")))];
   }
 
   function cordClampCount(recovery){

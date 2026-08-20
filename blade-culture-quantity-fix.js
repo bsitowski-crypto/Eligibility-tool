@@ -76,7 +76,9 @@
   }
 
   function sideSelection(value){
-    let match=String(value||"").match(/^ocaStd_(.+)_(left|right)$/);
+    let match=String(value||"").match(/^bilateral_(.+)_(left|right)$/);
+    if(match)return {id:match[1],position:match[2],standard:true};
+    match=String(value||"").match(/^ocaStd_(.+)_(left|right)$/);
     if(match)return {id:match[1],position:match[2],standard:true};
     match=String(value||"").match(/^(.+)_(left|right)$/);
     if(match&&SIDE_SPECIFIC_IDS.has(match[1])){
