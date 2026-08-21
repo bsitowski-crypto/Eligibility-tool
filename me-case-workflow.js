@@ -13,7 +13,7 @@
 
   function defaults(){
     return {
-      isCase:"",
+      isCase:"no",
       officeName:"",
       officeSnapshot:null,
       jurisdiction:"",
@@ -79,6 +79,9 @@
 
   function normalizeData(value){
     const data=merge(defaults(),value||{});
+    // The ME workflow is optional. A missing or legacy blank answer is No;
+    // existing Yes cases continue to load all of their saved follow-up data.
+    data.isCase=data.isCase==="yes"?"yes":"no";
     const sourceDocs=value?.documentation;
     const hasCurrentSource=sourceDocs&&["mdiLog","iTransplant","phone"]
       .some(key=>Object.prototype.hasOwnProperty.call(sourceDocs,key));
@@ -96,6 +99,7 @@
   function setValue(id,next){const node=byId(id);if(node)node.value=next??""}
   function setChecked(id,next){const node=byId(id);if(node)node.checked=!!next}
   function show(id,visible){byId(id)?.classList.toggle("hidden",!visible)}
+  let meDetailsCollapsed=true;
   function escapeHtml(input){
     return String(input??"").replace(/[&<>"']/g,char=>({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -243,6 +247,7 @@
     setValue("mePostConfirmationDateTime",data.postAutopsy.confirmationDateTime);
     setValue("meDeclineReason",data.decline.reason);
     setValue("meChangePossible",data.decline.changePossible);
+    meDetailsCollapsed=data.isCase!=="yes";
     render(data);
   }
 
@@ -256,7 +261,15 @@
     style.id="meCaseWorkflowStyle";
     style.textContent=`
       #meCaseWorkflow{margin:12px 0 16px;padding:14px;border:1px solid #bfd2e8;border-radius:14px;background:#f5f9ff}
-      #meCaseWorkflow .me-case-title{font-size:16px;font-weight:850;color:#071f3e;margin-bottom:10px}
+      #meCaseWorkflow .me-case-header{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,220px);gap:10px;align-items:end}
+      #meCaseWorkflow .me-case-toggle{display:flex;align-items:center;gap:8px;min-height:44px;width:100%;padding:8px 0;border:0;background:transparent;color:#071f3e;text-align:left}
+      #meCaseWorkflow .me-case-toggle:disabled{cursor:default;opacity:1}
+      #meCaseWorkflow .me-case-title{font-size:16px;font-weight:850;color:#071f3e}
+      #meCaseWorkflow .me-case-optional{font-size:11px;font-weight:850;color:#0b4f9c;background:#e6f0fc;border-radius:999px;padding:4px 7px}
+      #meCaseWorkflow .me-case-chevron{margin-left:auto;font-size:22px;line-height:1;transition:transform .16s ease}
+      #meCaseWorkflow .me-case-toggle[aria-expanded="true"] .me-case-chevron{transform:rotate(180deg)}
+      #meCaseWorkflow .me-case-control label{font-size:12px;margin-bottom:4px}
+      #meCaseWorkflow .me-case-control select{padding:9px 10px}
       #meCaseWorkflow .me-subsection{margin-top:14px;padding-top:12px;border-top:1px solid #d6e1ee}
       #meCaseWorkflow .me-subtitle{font-weight:850;margin-bottom:8px;color:#0b4f9c}
       #meCaseWorkflow .me-contact{padding:10px;border-radius:10px;background:#eaf2fb;margin-top:8px;font-size:13px;white-space:pre-wrap}
@@ -268,7 +281,7 @@
       #meCaseWorkflow .me-tube-row input[type=number]{width:100%}
       #meCaseWorkflow fieldset{border:0;padding:0;margin:0;min-width:0}
       #meCaseWorkflow .hidden{display:none!important}
-      @media(max-width:600px){#meCaseWorkflow .me-choice-grid{grid-template-columns:1fr}#meCaseWorkflow .me-tube-row{grid-template-columns:1fr 92px}}
+      @media(max-width:600px){#meCaseWorkflow .me-case-header{grid-template-columns:1fr}#meCaseWorkflow .me-choice-grid{grid-template-columns:1fr}#meCaseWorkflow .me-tube-row{grid-template-columns:1fr 92px}}
     `;
     document.head.appendChild(style);
   }
@@ -283,11 +296,15 @@
     const panel=document.createElement("div");
     panel.id="meCaseWorkflow";
     panel.innerHTML=`
-      <div class="me-case-title">Medical Examiner Case</div>
-      <div class="row">
-        <div class="fg">
-          <label for="meIsCase">Is this a Medical Examiner (ME) case?</label>
-          <select id="meIsCase"><option value="">Select...</option><option value="yes">Yes</option><option value="no">No</option></select>
+      <div class="me-case-header">
+        <button id="meCaseToggle" class="me-case-toggle" type="button" aria-controls="meFollowup" aria-expanded="false">
+          <span class="me-case-title">Medical Examiner Case</span>
+          <span class="me-case-optional">OPTIONAL</span>
+          <span class="me-case-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="me-case-control">
+          <label for="meIsCase">ME case?</label>
+          <select id="meIsCase"><option value="no" selected>No</option><option value="yes">Yes</option></select>
         </div>
       </div>
 
@@ -446,11 +463,18 @@
         <div id="meWorkflowStatus" class="result hidden" style="margin-top:12px"></div>
       </div>`;
 
-    heading.insertAdjacentElement("afterend",panel);
+    const cardBody=heading.closest(".card")?.querySelector(":scope > .pdx-section-body");
+    if(cardBody)cardBody.prepend(panel);
+    else heading.insertAdjacentElement("afterend",panel);
     refreshDirectoryOptions();
     panel.addEventListener("change",handleChange,true);
     panel.addEventListener("input",handleInput,true);
     byId("meOffice")?.addEventListener("focus",refreshDirectoryOptions);
+    byId("meCaseToggle")?.addEventListener("click",function(){
+      if(value("meIsCase")!=="yes")return;
+      meDetailsCollapsed=!meDetailsCollapsed;
+      render(collect());
+    });
     byId("meManageDirectory")?.addEventListener("click",function(){
       if(window.PDXMedicalExaminerDirectory?.open){
         window.PDXMedicalExaminerDirectory.open();
@@ -507,7 +531,14 @@
   function render(source){
     const data=normalizeData(source);
     const isME=data.isCase==="yes";
-    show("meFollowup",isME);
+    const expanded=isME&&!meDetailsCollapsed;
+    const toggle=byId("meCaseToggle");
+    if(toggle){
+      toggle.disabled=!isME;
+      toggle.setAttribute("aria-expanded",String(expanded));
+      toggle.title=isME?(expanded?"Collapse ME details":"Expand ME details"):"Select Yes to add ME details";
+    }
+    show("meFollowup",expanded);
     if(!isME)return;
 
     renderOffice(data);
@@ -589,11 +620,7 @@
   function validateData(source,autopsyStatus){
     const data=normalizeData(source);
     const errors=[];
-    if(!data.isCase){
-      errors.push("Answer whether this is a Medical Examiner case.");
-      return errors;
-    }
-    if(data.isCase==="no")return errors;
+    if(data.isCase!=="yes")return errors;
 
     if(!data.officeName)errors.push("Select or enter the Medical Examiner office.");
     if(!data.jurisdiction)errors.push("Select the ME jurisdiction status.");
@@ -810,6 +837,9 @@
   }
 
   function handleChange(event){
+    if(event.target.id==="meIsCase"){
+      meDetailsCollapsed=event.target.value!=="yes";
+    }
     const restrictionChanged=RESTRICTION_INPUTS.has(event.target.id);
     captureCurrent(true);
     render(collect());

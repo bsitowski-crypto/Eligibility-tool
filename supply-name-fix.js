@@ -22,7 +22,57 @@
     return quantity===1?names.one:names.many;
   }
 
-  function normalizeItems(items){
+  function selectedIds(recovery){
+    const values=Array.isArray(recovery)?recovery:recovery?.selected;
+    return new Set((values||[]).map(value=>String(value||"").trim()).filter(Boolean));
+  }
+
+  function leMaitreLrQuantity(recovery){
+    const selected=selectedIds(recovery);
+    return (selected.has("heartLeMaitre")?3:0)+
+      (selected.has("saphLeMaitre")?1:0)+
+      (selected.has("femVeinLeMaitre")?1:0)+
+      (selected.has("aiLeMaitre")?2:0);
+  }
+
+  function splitProcessorFluids(items,recovery){
+    const output=(items||[]).map(item=>Object.assign({},item));
+    const leMaitreQuantity=leMaitreLrQuantity(recovery);
+    const existingLeMaitre=output.find(item=>
+      String(item?.n||"").trim().toLowerCase()==="lemaitre lr"
+    );
+
+    if(leMaitreQuantity&&existingLeMaitre){
+      existingLeMaitre.c="LeMaitre";
+      existingLeMaitre.q=leMaitreQuantity;
+    }else if(leMaitreQuantity){
+      const lrIndex=output.findIndex(item=>{
+        const name=String(item?.n||"").trim().toLowerCase();
+        return name==="lactated ringers (lr)"||name==="lactated ringers"||name==="lr";
+      });
+      if(lrIndex>=0){
+        const lr=output[lrIndex];
+        const total=number(lr.q);
+        if(total!==null){
+          const remaining=Math.max(0,total-leMaitreQuantity);
+          if(remaining)lr.q=remaining;
+          else output.splice(lrIndex,1);
+        }
+      }
+      output.push({c:"LeMaitre",n:"LeMaitre LR",q:leMaitreQuantity});
+    }
+
+    for(const item of output){
+      const name=String(item?.n||"").trim().toLowerCase();
+      const category=String(item?.c||"").trim().toLowerCase();
+      if(category==="artivion"&&(name==="nacl"||name==="sodium chloride")){
+        item.n="Artivion NaCl";
+      }
+    }
+    return output;
+  }
+
+  function normalizeItems(items,recovery){
     const output=[];
     const positions=new Map();
 
@@ -55,7 +105,7 @@
       previous.n=displayName(names,number(previous.q));
     }
 
-    return output;
+    return splitProcessorFluids(output,recovery);
   }
 
   function html(value){
@@ -67,9 +117,9 @@
       .replace(/'/g,"&#39;");
   }
 
-  function normalizeCurrentList(){
+  function normalizeCurrentList(recovery){
     if(typeof latestSupplyItems==="undefined"||!Array.isArray(latestSupplyItems))return;
-    const normalized=normalizeItems(latestSupplyItems);
+    const normalized=normalizeItems(latestSupplyItems,recovery);
     latestSupplyItems.splice(0,latestSupplyItems.length,...normalized);
 
     const host=document.getElementById("supplies");
@@ -86,9 +136,9 @@
     const original=window.buildSupplies;
     if(typeof original!=="function"||original.__pdxSupplyNameFix)return false;
 
-    const wrapped=function(){
+    const wrapped=function(recovery){
       const result=original.apply(this,arguments);
-      normalizeCurrentList();
+      normalizeCurrentList(recovery);
       return result;
     };
     wrapped.__pdxSupplyNameFix=true;
@@ -97,8 +147,10 @@
     return true;
   }
 
-  window.PDXSupplyNameFix={normalizeItems};
-  if(!install()){
+  const api={normalizeItems,splitProcessorFluids,leMaitreLrQuantity};
+  if(typeof window!=="undefined")window.PDXSupplyNameFix=api;
+  if(typeof module!=="undefined"&&module.exports)module.exports=api;
+  if(typeof window!=="undefined"&&!install()){
     let tries=0;
     const timer=setInterval(function(){
       tries++;

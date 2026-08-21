@@ -75,7 +75,7 @@
     // Matches the photographed Pull / Log sheet from top to bottom.
     if(name.includes("pid label"))return 10;
     if(name==="rpmi"||name.includes("rpmi with antibiotics"))return 20;
-    if(name.includes("lactated ringers")||name==="lr")return 30;
+    if(name.includes("lactated ringers")||name==="lr"||name==="lemaitre lr")return 30;
     if(name.includes("amalgatome blade")||name.includes("amelgatome blade"))return 50;
     if(name.includes("amalgatome instrument")||name.includes("amelgatome instrument"))return 60;
     if(name==="amalgatome"||name==="amelgatome")return 40;
@@ -115,7 +115,7 @@
     if(name.includes("2.0 silk"))return 460;
     if(name.includes("artivion shipping box")||name.includes("cardiovascular shipping box"))return 470;
     if(name.includes("lemaitre shipping box"))return 471;
-    if(name==="nacl"||name.includes("sodium chloride"))return 480;
+    if(name==="nacl"||name==="artivion nacl"||name.includes("sodium chloride"))return 480;
     if(name.includes("adipose recovery kit"))return 490;
 
     if(name.includes("pathology container"))return 500;
