@@ -260,7 +260,7 @@ function applyMaster(render){
       try{if(typeof renderFunerals==="function")renderFunerals()}catch(_error){}
     }
     const version=document.querySelector(".ver");
-    if(version)version.textContent="Version 9.10.9 — Complete Directories + Optional Sections";
+    if(version)version.textContent="Version 9.10.10 — Complete Directories + Optional Sections";
     return true;
   }catch(error){
     console.warn("Master directory restore",error);

@@ -94,7 +94,13 @@
       </div>
       <div id="${BANNER_ID}" class="hidden"></div>
     `;
-    screeningCard.insertBefore(box,screenBtn);
+    // Collapsible sections may have moved the screening button into a nested
+    // section body while this script was waiting to install. Insert beside the
+    // button in its current parent instead of assuming it is still a direct
+    // child of the card (Safari throws NotFoundError for that stale parent).
+    const screenParent=screenBtn.parentElement;
+    if(!screenParent)return false;
+    screenParent.insertBefore(box,screenBtn);
     box.addEventListener("change",saveState);
     loadState(donor());
     return true;
