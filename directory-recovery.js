@@ -137,7 +137,7 @@
         try{if(typeof renderFunerals==="function")renderFunerals();}catch(_e){}
       }
       const ver=document.querySelector(".ver");
-      if(ver)ver.textContent="Version 9.10.10 — Complete Directories + Optional Sections";
+      if(ver)ver.textContent="Version 9.10.11 — Side-Specific Grafts + Blade Rules";
     }catch(err){console.warn("Directory recovery",err);}
   }
 

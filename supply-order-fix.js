@@ -161,13 +161,50 @@
       .replace(/'/g,"&#39;");
   }
 
+  function cultureQuantity(item){
+    const name=key(item?.n);
+    if(name!=="tsb"&&name!=="thio"&&!name.includes("thioglycollate")&&
+      !name.includes("trypticase soy broth"))return null;
+    const match=String(item?.q??"").trim().match(/^(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)$/);
+    return match?{left:match[1],middle:match[2],right:match[3]}:null;
+  }
+
+  function ensureCultureStyles(){
+    if(typeof document==="undefined"||document.getElementById("pdxCultureSupplyStyles"))return;
+    const style=document.createElement("style");
+    style.id="pdxCultureSupplyStyles";
+    style.textContent=`
+      #supplies .pdx-culture-qty{display:grid;grid-template-columns:repeat(3,minmax(34px,1fr));min-width:132px;border:1px solid #d4d8df;border-radius:8px;overflow:hidden;background:#fff}
+      #supplies .pdx-culture-cell{display:grid;grid-template-rows:auto auto;text-align:center;padding:3px 5px;line-height:1.1}
+      #supplies .pdx-culture-cell+.pdx-culture-cell{border-left:1px solid #d4d8df}
+      #supplies .pdx-culture-label{font-size:10px;color:#687386;text-transform:uppercase}
+      #supplies .pdx-culture-value{font-size:14px;color:#071f3e}
+      @media(max-width:520px){
+        #supplies .pdx-culture-qty{min-width:120px}
+        #supplies .pdx-culture-cell{padding:3px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function quantityHtml(item){
+    const culture=cultureQuantity(item);
+    if(!culture)return '<strong>'+escapeHtml(item.q)+'</strong>';
+    return '<div class="pdx-culture-qty" aria-label="Culture tubes by graft column">'+
+      [["L",culture.left],["M",culture.middle],["R",culture.right]].map(entry=>
+        '<span class="pdx-culture-cell"><span class="pdx-culture-label">'+entry[0]+
+        '</span><strong class="pdx-culture-value">'+escapeHtml(entry[1])+'</strong></span>'
+      ).join("")+'</div>';
+  }
+
   function render(items){
     const host=document.getElementById("supplies");
     if(!host||!items.length)return;
+    ensureCultureStyles();
     host.innerHTML='<div class="supply">'+items.map(item=>
       '<div class="srow"><div><strong>'+escapeHtml(item.n)+'</strong>'+
       (item.note?'<div class="small">'+escapeHtml(item.note)+'</div>':"")+
-      '</div><strong>'+escapeHtml(item.q)+'</strong></div>'
+      '</div>'+quantityHtml(item)+'</div>'
     ).join("")+'</div>';
   }
 
@@ -210,7 +247,10 @@
     return true;
   }
 
-  const api={key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,applyCordClampRule};
+  const api={
+    key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,
+    applyCordClampRule,cultureQuantity
+  };
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 

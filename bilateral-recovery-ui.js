@@ -100,7 +100,13 @@
     let installed=false;
 
     function graft(id){
-      try{return typeof root.G==="function"?root.G(id):null}catch{return null}
+      try{
+        // G is declared by the decoded planner as a global lexical binding,
+        // so it is not necessarily exposed as window.G in Safari.
+        if(typeof G==="function")return G(id)||null;
+        if(typeof root.G==="function")return root.G(id)||null;
+      }catch{}
+      return null;
     }
 
     function addStyles(){
@@ -420,11 +426,7 @@
           const chosen=["left","right"].filter(side=>sideValues.includes(sideId(id,side)));
           if(!chosen.length)continue;
           const names=chosen.map(side=>displayName(id,side,recovery,graftName));
-          if(chosen.length===2&&names[0]===names[1]){
-            output.solvita.push(combinedName(id,names[0]));
-          }else{
-            chosen.forEach((side,index)=>output.solvita.push(`${SIDE_LABEL[side]} ${names[index]}`));
-          }
+          chosen.forEach((side,index)=>output.solvita.push(`${SIDE_LABEL[side]} ${names[index]}`));
         }
 
         const ocaNames={
@@ -438,8 +440,7 @@
         for(const [id,name] of Object.entries(ocaNames)){
           output.oca=removeBilateralNames(output.oca,id,[name]);
           const chosen=["left","right"].filter(side=>sideValues.includes(`${id}_${side}`));
-          if(chosen.length===2)output.oca.push(name);
-          else if(chosen.length===1)output.oca.push(`${SIDE_LABEL[chosen[0]]} ${name}`);
+          chosen.forEach(side=>output.oca.push(`${SIDE_LABEL[side]} ${name}`));
         }
         return output;
       };

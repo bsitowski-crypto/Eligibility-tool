@@ -34,6 +34,32 @@
       return {title:text(section.querySelector("h3")),rows,groups};
     }).filter(section=>section.title);
 
+    const validatedIndex=sections.findIndex(section=>/validated graft list/i.test(section.title));
+    if(validatedIndex>=0&&window.PDXGraftListOrder?.currentColumns){
+      const columns=window.PDXGraftListOrder.currentColumns();
+      sections[validatedIndex].groups=["left","middle","right"].map(column=>({
+        label:column[0].toUpperCase()+column.slice(1),
+        items:[...(columns[column]||[])]
+      }));
+
+      let totals={left:0,middle:0,right:0,total:0};
+      try{
+        const recovery=typeof getRecovery==="function"?getRecovery():null;
+        totals=window.PDXBladeCultureFix?.cultureTotals?.(recovery)||totals;
+      }catch{}
+      if(Number(totals.total)>0){
+        const cultures=window.PDXGraftListOrder.currentCultureColumns();
+        sections.splice(validatedIndex+1,0,{
+          title:"Culture Tubes",
+          rows:[],
+          groups:["left","middle","right"].map(column=>({
+            label:column[0].toUpperCase()+column.slice(1),
+            items:[...(cultures[column]||[])]
+          }))
+        });
+      }
+    }
+
     const supplies=[...sheet.querySelectorAll(".print-supply-row")].map(row=>({
       name:text(row.children?.[0]),
       qty:text(row.querySelector(".qty"))

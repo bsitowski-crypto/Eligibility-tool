@@ -66,14 +66,19 @@
   }
 
   function normalizeSections(data){
-    return (data.sections||[]).map(section=>({
-      title:clean(section.title),
-      rows:(section.rows||[]).map(clean).filter(Boolean),
-      groups:(section.groups||[]).map(group=>({
+    return (data.sections||[]).map(section=>{
+      const groups=(section.groups||[]).map(group=>({
         label:clean(group.label),
         items:(group.items||[]).map(clean).filter(Boolean)
-      })).filter(group=>group.label&&group.items.length)
-    })).filter(section=>section.title);
+      })).filter(group=>group.label);
+      const labels=new Set(groups.map(group=>group.label.toLowerCase()));
+      return {
+        title:clean(section.title),
+        rows:(section.rows||[]).map(clean).filter(Boolean),
+        groups,
+        sideColumns:["left","middle","right"].every(label=>labels.has(label))
+      };
+    }).filter(section=>section.title);
   }
 
   function normalizeSupplies(data){
@@ -119,6 +124,40 @@
     return height;
   }
 
+  function sideColumnsHeight(groups,width,cfg,fonts){
+    const gap=8;
+    const columnWidth=(width-(gap*2))/3;
+    const byLabel=new Map(groups.map(group=>[group.label.toLowerCase(),group]));
+    const ordered=["left","middle","right"].map(label=>
+      byLabel.get(label)||{label,items:[]}
+    );
+    const headerHeight=Math.max(...ordered.map(group=>
+      Math.max(wrapText(fonts.bold,group.label.toUpperCase(),cfg.groupSize,columnWidth-6).length,1)*cfg.groupLine
+    ))+2;
+
+    function splitItems(items){
+      const index=items.findIndex(item=>String(item).trim().toUpperCase()==="PFO");
+      return index<0
+        ?{standard:items,pfo:[]}
+        :{standard:items.slice(0,index),pfo:items.slice(index+1)};
+    }
+
+    function itemsHeight(items){
+      return items.reduce((sum,item)=>{
+        const lines=wrapText(fonts.regular,"- "+item,cfg.itemSize,columnWidth-6);
+        return sum+(Math.max(lines.length,1)*cfg.itemLine)+1.2;
+      },0);
+    }
+
+    const split=ordered.map(group=>splitItems(group.items));
+    const standardHeight=Math.max(...split.map(group=>itemsHeight(group.standard)),0);
+    const hasPfo=split.some(group=>group.pfo.length);
+    const pfoHeight=hasPfo
+      ?cfg.groupLine+3+Math.max(...split.map(group=>itemsHeight(group.pfo)),0)
+      :0;
+    return headerHeight+standardHeight+pfoHeight+2;
+  }
+
   function measureCase(sections,cfg,fonts){
     let height=0;
     for(const section of sections){
@@ -127,15 +166,19 @@
         section.rows,LEFT_WIDTH,cfg.infoSize,cfg.infoLine,
         cfg.rowPad,fonts.regular,""
       );
-      for(const group of section.groups){
-        const labelLines=wrapText(
-          fonts.bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
-        );
-        height+=Math.max(labelLines.length,1)*cfg.groupLine+1;
-        height+=gridHeight(
-          group.items,LEFT_WIDTH-8,cfg.itemSize,cfg.itemLine,
-          1.2,fonts.regular,"- "
-        );
+      if(section.sideColumns){
+        height+=sideColumnsHeight(section.groups,LEFT_WIDTH-4,cfg,fonts);
+      }else{
+        for(const group of section.groups){
+          const labelLines=wrapText(
+            fonts.bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
+          );
+          height+=Math.max(labelLines.length,1)*cfg.groupLine+1;
+          height+=gridHeight(
+            group.items,LEFT_WIDTH-8,cfg.itemSize,cfg.itemLine,
+            1.2,fonts.regular,"- "
+          );
+        }
       }
       height+=cfg.sectionGap;
     }
@@ -291,6 +334,87 @@
       return y;
     }
 
+    function drawSideColumns(groups,x,width,y){
+      const gap=8;
+      const columnWidth=(width-(gap*2))/3;
+      const byLabel=new Map(groups.map(group=>[group.label.toLowerCase(),group]));
+      const ordered=["left","middle","right"].map(label=>
+        byLabel.get(label)||{label,items:[]}
+      );
+      const headerSets=ordered.map(group=>
+        wrapText(bold,group.label.toUpperCase(),cfg.groupSize,columnWidth-6)
+      );
+      const headerHeight=Math.max(...headerSets.map(lines=>Math.max(lines.length,1)*cfg.groupLine))+2;
+
+      headerSets.forEach((lines,column)=>lines.forEach((text,index)=>page.drawText(text,{
+        x:x+(column*(columnWidth+gap))+3,
+        y:y-cfg.groupSize-(index*cfg.groupLine),
+        size:cfg.groupSize,font:bold,color:blue
+      })));
+
+      const itemTop=y-headerHeight;
+      const split=ordered.map(group=>{
+        const index=group.items.findIndex(item=>String(item).trim().toUpperCase()==="PFO");
+        return index<0
+          ?{standard:group.items,pfo:[]}
+          :{standard:group.items.slice(0,index),pfo:group.items.slice(index+1)};
+      });
+
+      function drawItems(items,column,columnY){
+        const columnX=x+(column*(columnWidth+gap));
+        let currentY=columnY;
+        for(const item of items){
+          const lines=wrapText(regular,"- "+item,cfg.itemSize,columnWidth-6);
+          lines.forEach((text,index)=>page.drawText(text,{
+            x:columnX+3,y:currentY-cfg.itemSize-(index*cfg.itemLine),
+            size:cfg.itemSize,font:regular,color:ink
+          }));
+          const rowHeight=(Math.max(lines.length,1)*cfg.itemLine)+1.2;
+          currentY-=rowHeight;
+          page.drawLine({
+            start:{x:columnX,y:currentY+1.2},
+            end:{x:columnX+columnWidth,y:currentY+1.2},
+            thickness:.25,color:line
+          });
+        }
+        return currentY;
+      }
+
+      const standardBottoms=split.map((group,column)=>
+        drawItems(group.standard,column,itemTop)
+      );
+      let bottom=Math.min(...standardBottoms,itemTop);
+
+      if(split.some(group=>group.pfo.length)){
+        const pfoHeaderHeight=cfg.groupLine+3;
+        page.drawRectangle({
+          x,y:bottom-pfoHeaderHeight+1,width,height:pfoHeaderHeight,color:pale
+        });
+        page.drawRectangle({
+          x,y:bottom-pfoHeaderHeight+1,width:2,height:pfoHeaderHeight,color:purple
+        });
+        page.drawText("PFO",{
+          x:x+5,y:bottom-cfg.groupSize-1,
+          size:cfg.groupSize,font:bold,color:blue
+        });
+        const pfoTop=bottom-pfoHeaderHeight;
+        const pfoBottoms=split.map((group,column)=>
+          drawItems(group.pfo,column,pfoTop)
+        );
+        bottom=Math.min(...pfoBottoms,pfoTop);
+      }
+
+      bottom-=2;
+      for(let column=1;column<3;column++){
+        const lineX=x+(column*columnWidth)+((column-.5)*gap);
+        page.drawLine({
+          start:{x:lineX,y:y+1},end:{x:lineX,y:bottom+1},
+          thickness:.3,color:line
+        });
+      }
+      return bottom;
+    }
+
     let caseY=CONTENT_TOP;
     if(!sections.length){
       page.drawText("No case details were generated.",{
@@ -303,19 +427,23 @@
         section.rows,MARGIN,LEFT_WIDTH,caseY,cfg.infoSize,cfg.infoLine,
         cfg.rowPad,ink,""
       );
-      for(const group of section.groups){
-        const labelLines=wrapText(
-          bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
-        );
-        labelLines.forEach((text,index)=>page.drawText(text,{
-          x:MARGIN+3,y:caseY-cfg.groupSize-(index*cfg.groupLine),
-          size:cfg.groupSize,font:bold,color:blue
-        }));
-        caseY-=Math.max(labelLines.length,1)*cfg.groupLine+1;
-        caseY=drawGrid(
-          group.items,MARGIN+2,LEFT_WIDTH-4,caseY,cfg.itemSize,cfg.itemLine,
-          1.2,ink,"- "
-        );
+      if(section.sideColumns){
+        caseY=drawSideColumns(section.groups,MARGIN+2,LEFT_WIDTH-4,caseY);
+      }else{
+        for(const group of section.groups){
+          const labelLines=wrapText(
+            bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
+          );
+          labelLines.forEach((text,index)=>page.drawText(text,{
+            x:MARGIN+3,y:caseY-cfg.groupSize-(index*cfg.groupLine),
+            size:cfg.groupSize,font:bold,color:blue
+          }));
+          caseY-=Math.max(labelLines.length,1)*cfg.groupLine+1;
+          caseY=drawGrid(
+            group.items,MARGIN+2,LEFT_WIDTH-4,caseY,cfg.itemSize,cfg.itemLine,
+            1.2,ink,"- "
+          );
+        }
       }
       caseY-=cfg.sectionGap;
     }

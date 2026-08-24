@@ -20,19 +20,26 @@
   };
   const CULTURE_EXCLUSIONS=new Set(["artivion","lemaitre","axogen"]);
 
+  const SKIN_IDS=new Set(["anteriorSkin","posteriorSkin","legSkin"]);
+  const BONE_TENDON_IDS=new Set([
+    "humerus","radius","ulna","femur","tibia","fibula","achilles",
+    "hemi","antTib","postTib","gracilis","semitendinosus","peroneus",
+    "kneeBlock","armBlock","freshHumerus","freshProxHumerus",
+    "freshProxFemur","freshKnee","freshAnkle","silvieElbow"
+  ]);
+
   const ARM_IDS=new Set([
     "humerus","radius","ulna","armBlock","freshHumerus",
     "freshProxHumerus","silvieElbow","nerves"
   ]);
   const LEG_IDS=new Set([
-    "legSkin","femur","tibia","fibula","achilles","hemi","antTib",
+    "femur","tibia","fibula","achilles","hemi","antTib",
     "postTib","gracilis","semitendinosus","peroneus","kneeBlock",
-    "fascia","freshProxFemur","freshKnee","freshAnkle","saphArtivion",
-    "saphLeMaitre","femVeinArtivion","femVeinLeMaitre","nerves","adipose"
+    "fascia","freshProxFemur","freshKnee","freshAnkle","nerves"
   ]);
   const CHEST_IDS=new Set([
-    "anteriorSkin","posteriorSkin","cartilage","pericardium",
-    "heartArtivion","heartLeMaitre","dta","aiArtivion","aiLeMaitre","adipose"
+    "cartilage","pericardium","heartArtivion","heartLeMaitre","dta",
+    "aiArtivion","aiLeMaitre"
   ]);
 
   function uniqueStrings(values){
@@ -68,7 +75,10 @@
   }
 
   function positionsFor(id,graft){
-    if(id==="adipose")return ["middle","middle","right","left"];
+    // All four adipose zones belong in the middle column, including the
+    // left- and right-thigh zones. Their culture tubes follow that same
+    // placement so the graft list and culture counts stay aligned.
+    if(id==="adipose")return ["middle","middle","middle","middle"];
     if(BILATERAL_IDS.has(id)||String(graft?.culture||"").toUpperCase()==="LR"){
       return ["left","right"];
     }
@@ -129,13 +139,41 @@
     for(const graft of grafts){
       for(const region of graft.regions)incisionRegions.add(region);
     }
-    const graftBlades=grafts.length*2;
-    const incisionBlades=incisionRegions.size*2;
+    const incisionByRegion={
+      arms:incisionRegions.has("arms")?2:0,
+      legs:incisionRegions.has("legs")?2:0,
+      chest:incisionRegions.has("chest")?1:0
+    };
+    const incisionBlades=Object.values(incisionByRegion)
+      .reduce((sum,value)=>sum+value,0);
+
+    let boneTendonGrafts=0;
+    let fasciaGrafts=0;
+    let skinZones=0;
+    let adiposeZones=0;
+    let cartilageGrafts=0;
+    for(const graft of grafts){
+      if(BONE_TENDON_IDS.has(graft.id))boneTendonGrafts++;
+      else if(graft.id==="fascia")fasciaGrafts++;
+      else if(SKIN_IDS.has(graft.id))skinZones++;
+      else if(graft.id==="adipose")adiposeZones++;
+      else if(graft.id==="cartilage")cartilageGrafts++;
+    }
+
+    const recoveryBlades=boneTendonGrafts+fasciaGrafts+(skinZones*4)+
+      (adiposeZones*2)+(cartilageGrafts*3);
     return {
-      count:graftBlades+incisionBlades,
+      count:recoveryBlades+incisionBlades,
       graftCount:grafts.length,
-      graftBlades,
+      graftBlades:recoveryBlades,
+      recoveryBlades,
       incisionBlades,
+      incisionByRegion,
+      boneTendonGrafts,
+      fasciaGrafts,
+      skinZones,
+      adiposeZones,
+      cartilageGrafts,
       incisionRegions:[...incisionRegions].sort()
     };
   }
@@ -165,10 +203,18 @@
       .map(item=>Object.assign({},item));
 
     if(blades.count){
-      const areas=blades.incisionRegions.join(", ")||"none";
+      const details=[];
+      if(blades.incisionByRegion.arms)details.push("2 arm-incision blades");
+      if(blades.incisionByRegion.legs)details.push("2 leg-incision blades");
+      if(blades.incisionByRegion.chest)details.push("1 chest-incision blade");
+      if(blades.boneTendonGrafts)details.push(`${blades.boneTendonGrafts} bone/tendon graft blade${blades.boneTendonGrafts===1?"":"s"}`);
+      if(blades.fasciaGrafts)details.push(`${blades.fasciaGrafts} fascia blade${blades.fasciaGrafts===1?"":"s"}`);
+      if(blades.skinZones)details.push(`${blades.skinZones*4} blades for ${blades.skinZones} skin zone${blades.skinZones===1?"":"s"}`);
+      if(blades.adiposeZones)details.push(`${blades.adiposeZones*2} blades for ${blades.adiposeZones} adipose zones`);
+      if(blades.cartilageGrafts)details.push("3 cartilage/sternum recovery blades");
       output.push({
         c:"Core",n:"Scalpel Blades",q:blades.count,
-        note:`2 per graft (${blades.graftCount} grafts) + 2 per initial-incision area (${areas})`
+        note:details.join(" + ")
       });
     }
     if(cultures.total){

@@ -15,8 +15,12 @@
     // Zone A - skin and adipose.
     [/posterior trunk.*skin|posterior trunk$/,100],
     [/leg skin|posterior legs|anterior legs/,110],
-    [/anterior thigh adipose|thigh adipose/,500],
-    [/adipose/,120],
+    [/anterior trunk adipose/,120],
+    [/posterior trunk adipose/,121],
+    [/left thigh adipose/,122],
+    [/right thigh adipose/,123],
+    [/anterior thigh adipose|thigh adipose/,124],
+    [/adipose/,125],
     [/anterior trunk.*skin|anterior trunk$/,130],
 
     // Zone B - chest.
@@ -71,6 +75,47 @@
       .trim();
   }
 
+  function displayKey(value){
+    return String(value||"")
+      .toLowerCase()
+      .replace(/[\u2013\u2014]/g,"-")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function displayName(value){
+    const original=String(value||"").trim();
+    const sideMatch=original.match(/^(left|right)\s+/i);
+    const side=sideMatch?sideMatch[1][0].toUpperCase()+sideMatch[1].slice(1).toLowerCase():"";
+    let name=sideMatch?original.slice(sideMatch[0].length).trim():original;
+
+    const alias=name.toLowerCase().replace(/[^a-z0-9]+/g,"");
+    if(alias==="anttib"||alias==="anteriortibialis")name="Anterior Tibialis";
+    if(alias==="posttib"||alias==="posteriortibialis")name="Posterior Tibialis";
+
+    // The core data already includes processor names on PFO grafts and also
+    // appends the processor while printing. Collapse the repeated suffix.
+    name=name.replace(
+      /\s*[-\u2013\u2014]\s*(Artivion|LeMaitre|Axogen|RegenTX)\s*[-\u2013\u2014]\s*\1\s*$/i,
+      " — $1"
+    );
+    return side?`${side} ${name}`:name;
+  }
+
+  function uniqueDisplayNames(values){
+    const output=[];
+    const seen=new Set();
+    for(const value of values||[]){
+      const name=displayName(value);
+      const side=name.match(/^(left|right)\s+/i)?.[1]?.toLowerCase()||"middle";
+      const key=side+"|"+normalizedName(name);
+      if(!name||seen.has(key))continue;
+      seen.add(key);
+      output.push(name);
+    }
+    return output;
+  }
+
   function zoneRank(value){
     const name=normalizedName(value);
     for(const [pattern,rank] of ZONE_RULES){
@@ -99,11 +144,120 @@
   }
 
   function orderItems(items){
-    return expandTendons(items)
+    return uniqueDisplayNames(expandTendons(items))
       .map((value,index)=>({value,index,rank:zoneRank(value),side:sideRank(value)}))
       .sort((a,b)=>a.rank-b.rank||a.side-b.side||a.index-b.index||
         String(a.value).localeCompare(String(b.value)))
       .map(entry=>entry.value);
+  }
+
+  function graftColumns(groups){
+    const source=groups&&typeof groups==="object"?groups:{};
+    function place(values){
+      const columns={left:[],middle:[],right:[]};
+      const names=uniqueDisplayNames(values);
+      const explicitSides=new Set();
+
+      for(const value of names){
+        const match=value.match(/^(Left|Right)\s+(.+)$/i);
+        if(match)explicitSides.add(normalizedName(match[2]));
+      }
+
+      function add(column,value){
+        const name=displayName(value);
+        // Preserve the written side for items intentionally placed in the
+        // middle column, such as Left Thigh and Right Thigh Adipose.
+        if(name&&!columns[column].some(item=>displayKey(item)===displayKey(name))){
+          columns[column].push(name);
+        }
+      }
+
+      for(const value of names){
+        if(/^(Left|Right)\s+Thigh Adipose\b/i.test(value)){
+          add("middle",value);
+          continue;
+        }
+        const sideMatch=value.match(/^(Left|Right)\s+(.+)$/i);
+        if(sideMatch){
+          add(sideMatch[1].toLowerCase(),sideMatch[2]);
+          continue;
+        }
+
+        const name=displayName(value);
+        const key=normalizedName(name);
+        if(explicitSides.has(key))continue;
+
+        if(/^adipose(?:\s*[-\u2013\u2014]\s*RegenTX)?$/i.test(name)){
+          const processor=/RegenTX/i.test(name)?" — RegenTX":"";
+          add("middle","Anterior Trunk Adipose"+processor);
+          add("middle","Posterior Trunk Adipose"+processor);
+          add("middle","Left Thigh Adipose"+processor);
+          add("middle","Right Thigh Adipose"+processor);
+          continue;
+        }
+
+        if(/^nerves(?:\s*[-\u2013\u2014]\s*Axogen)?$/i.test(name)){
+          const processor=/Axogen/i.test(name)?" — Axogen":"";
+          add("left","Upper Nerves"+processor);
+          add("left","Lower Nerves"+processor);
+          add("right","Upper Nerves"+processor);
+          add("right","Lower Nerves"+processor);
+          continue;
+        }
+
+        if(/^(saphenous|femoral) vein\b/i.test(name)){
+          add("left",name);
+          add("right",name);
+          continue;
+        }
+
+        add("middle",name);
+      }
+
+      columns.left=orderItems(columns.left);
+      columns.middle=orderItems(columns.middle);
+      columns.right=orderItems(columns.right);
+      return columns;
+    }
+
+    const standard=place([...(source.solvita||[]),...(source.oca||[])]);
+    const pfo=place(source.pfo||[]);
+    const columns={left:[],middle:[],right:[]};
+    for(const column of ["left","middle","right"]){
+      columns[column].push(...standard[column]);
+      if(pfo[column].length)columns[column].push("PFO",...pfo[column]);
+    }
+    return columns;
+  }
+
+  function cultureColumns(totals){
+    const source=totals||{};
+    const values={
+      left:Number(source.left)||0,
+      middle:Number(source.middle)||0,
+      right:Number(source.right)||0
+    };
+    return {
+      left:[`TSB: ${values.left}`,`Thio: ${values.left}`],
+      middle:[`TSB: ${values.middle}`,`Thio: ${values.middle}`],
+      right:[`TSB: ${values.right}`,`Thio: ${values.right}`]
+    };
+  }
+
+  function currentColumns(){
+    try{
+      const groups=typeof root.currentPrintableGraftGroups==="function"
+        ?root.currentPrintableGraftGroups():{solvita:[],pfo:[],oca:[]};
+      return graftColumns(groups);
+    }catch{return {left:[],middle:[],right:[]}}
+  }
+
+  function currentCultureColumns(){
+    try{
+      const recovery=typeof getRecovery==="function"?getRecovery():null;
+      const totals=root.PDXBladeCultureFix?.cultureTotals?.(recovery)||{};
+      return cultureColumns(totals);
+    }catch{return cultureColumns({})}
   }
 
   function orderGroups(groups){
@@ -127,7 +281,10 @@
     return true;
   }
 
-  const api={normalizedName,zoneRank,orderItems,orderGroups,expandTendons};
+  const api={
+    normalizedName,displayKey,displayName,zoneRank,orderItems,orderGroups,expandTendons,
+    graftColumns,cultureColumns,currentColumns,currentCultureColumns
+  };
   root.PDXGraftListOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
 
