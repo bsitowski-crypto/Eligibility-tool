@@ -11,14 +11,14 @@
   };
   const ADMIN_EMAIL="bsitowski@gmail.com";
 
-  let cloudAuth=null,cloudDb=null,cloudUnsub=null,cloudReady=false,cloudApplying=false,cloudSyncTimer=null;
+  let cloudAuth=null,cloudDb=null,cloudUnsub=null,cloudApprovalUnsub=null,cloudReady=false,cloudApplying=false,cloudSyncTimer=null,cloudAccessRevoking=false;
   let cloudKnown=new Map();
 
   function installCloudUI(){
     const style=document.createElement("style");
     style.textContent=`
 #cloudAuthGate,#cloudAdminModal,#cloudPasswordModal{position:fixed;inset:0;z-index:1000;background:#071f3eee;display:flex;align-items:center;justify-content:center;padding:18px;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
-#cloudPasswordModal{z-index:1100}#cloudAuthGate.hidden,#cloudAdminModal.hidden,#cloudPasswordModal.hidden{display:none!important}.cloud-auth-box,.cloud-admin-box{width:min(470px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;padding:22px;box-shadow:0 18px 55px #0006;color:#1c1c1e;box-sizing:border-box}.cloud-auth-box h2,.cloud-admin-box h2{font-size:24px;color:#071f3e;margin:0 0 6px}.cloud-auth-box p,.cloud-admin-box p{margin:0 0 16px;color:#666;line-height:1.45}.cloud-auth-box label,.cloud-admin-box label{display:block;font-weight:700;margin:0 0 6px}.cloud-auth-box input,.cloud-admin-box input{font:inherit;font-size:16px;width:100%;box-sizing:border-box;padding:11px;border:1px solid #d6d6dc;border-radius:10px;background:#fff;margin-bottom:13px}.cloud-auth-box button,.cloud-admin-box button{font:inherit;width:100%;border:0;border-radius:10px;padding:12px 14px;background:#0b63ce;color:#fff;font-weight:800}.cloud-auth-box button:disabled,.cloud-admin-box button:disabled{opacity:.55}.cloud-link-btn{margin-top:8px!important;background:transparent!important;color:#0b63ce!important;padding:8px!important;font-weight:700!important}.cloud-auth-error{display:none;background:#fff0f0;color:#8a1d1d;border-left:5px solid #c93535;padding:10px;border-radius:8px;margin:10px 0;font-size:13px}.cloud-auth-note{font-size:12px;color:#666;line-height:1.45;margin-top:12px}.cloud-status{display:inline-block;font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;background:#a86b00;color:#fff;white-space:nowrap;margin-right:6px}.cloud-status.ok{background:#2e8b57}.cloud-status.bad{background:#a52b2b}#cloudSignOutBtn,#cloudAdminBtn{display:none}.cloud-admin-row{border-top:1px solid #e5e5ea;padding:12px 0;display:flex;gap:10px;align-items:center}.cloud-admin-row .who{flex:1;min-width:0}.cloud-admin-row .email{font-weight:800;overflow-wrap:anywhere}.cloud-admin-row .uid{font-size:11px;color:#777;overflow-wrap:anywhere}.cloud-admin-row .status{font-size:11px;color:#a86b00;font-weight:700;margin-top:3px}.cloud-user-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.cloud-admin-row .cloud-user-actions button{width:auto;min-width:86px;padding:9px 10px}.cloud-reset-btn{background:#0b63ce!important}.cloud-revoke-btn{background:#a52b2b!important}.cloud-admin-actions{display:flex;gap:8px;margin-top:10px}.cloud-admin-actions button{flex:1}.cloud-admin-actions .secondary{background:#68707a}.cloud-admin-success{display:none;background:#eefaf2;color:#23633a;border-left:5px solid #2e8b57;padding:10px;border-radius:8px;margin:10px 0;font-size:13px}
+#cloudPasswordModal{z-index:1100}#cloudAuthGate.hidden,#cloudAdminModal.hidden,#cloudPasswordModal.hidden{display:none!important}.cloud-auth-box,.cloud-admin-box{width:min(470px,100%);max-height:88vh;overflow:auto;background:#fff;border-radius:18px;padding:22px;box-shadow:0 18px 55px #0006;color:#1c1c1e;box-sizing:border-box}.cloud-auth-box h2,.cloud-admin-box h2{font-size:24px;color:#071f3e;margin:0 0 6px}.cloud-auth-box p,.cloud-admin-box p{margin:0 0 16px;color:#666;line-height:1.45}.cloud-auth-box label,.cloud-admin-box label{display:block;font-weight:700;margin:0 0 6px}.cloud-auth-box input,.cloud-admin-box input{font:inherit;font-size:16px;width:100%;box-sizing:border-box;padding:11px;border:1px solid #d6d6dc;border-radius:10px;background:#fff;margin-bottom:13px}.cloud-auth-box button,.cloud-admin-box button{font:inherit;width:100%;border:0;border-radius:10px;padding:12px 14px;background:#0b63ce;color:#fff;font-weight:800}.cloud-auth-box button:disabled,.cloud-admin-box button:disabled{opacity:.55}.cloud-link-btn{margin-top:8px!important;background:transparent!important;color:#0b63ce!important;padding:8px!important;font-weight:700!important}.cloud-auth-error{display:none;background:#fff0f0;color:#8a1d1d;border-left:5px solid #c93535;padding:10px;border-radius:8px;margin:10px 0;font-size:13px}.cloud-auth-note{font-size:12px;color:#666;line-height:1.45;margin-top:12px}.cloud-status{display:inline-block;font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;background:#a86b00;color:#fff;white-space:nowrap;margin-right:6px}.cloud-status.ok{background:#2e8b57}.cloud-status.bad{background:#a52b2b}#cloudSignOutBtn,#cloudAdminBtn{display:none}.cloud-admin-row{border-top:1px solid #e5e5ea;padding:12px 0;display:flex;gap:10px;align-items:center}.cloud-admin-row.revoked{background:#fff7f7;margin:0 -8px;padding:12px 8px}.cloud-admin-row .who{flex:1;min-width:0}.cloud-admin-row .email{font-weight:800;overflow-wrap:anywhere}.cloud-admin-row .uid{font-size:11px;color:#777;overflow-wrap:anywhere}.cloud-admin-row .status{font-size:11px;color:#a86b00;font-weight:700;margin-top:3px}.cloud-admin-row.revoked .status{color:#a52b2b}.cloud-user-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.cloud-admin-row .cloud-user-actions button{width:auto;min-width:86px;padding:9px 10px}.cloud-reset-btn{background:#0b63ce!important}.cloud-revoke-btn{background:#a52b2b!important}.cloud-restore-btn{background:#2e8b57!important}.cloud-admin-actions{display:flex;gap:8px;margin-top:10px}.cloud-admin-actions button{flex:1}.cloud-admin-actions .secondary{background:#68707a}.cloud-admin-legacy{border-top:2px solid #e5e5ea;margin-top:18px;padding-top:14px}.cloud-admin-legacy h3{margin:0 0 6px}.cloud-admin-success{display:none;background:#eefaf2;color:#23633a;border-left:5px solid #2e8b57;padding:10px;border-radius:8px;margin:10px 0;font-size:13px}
 `;
     document.head.appendChild(style);
 
@@ -34,7 +34,24 @@
 
     const admin=document.createElement("div");
     admin.id="cloudAdminModal";admin.className="hidden";
-    admin.innerHTML=`<div class="cloud-admin-box"><h2>User Administration</h2><p>Create an approved planner account. New employees start with a temporary password and will be required to choose a new password at first sign-in.</p><label>Email</label><input id="adminNewEmail" type="email" inputmode="email" placeholder="coworker@example.com"><label>Temporary password</label><input id="adminNewPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters"><div id="adminError" class="cloud-auth-error"></div><div id="adminSuccess" class="cloud-admin-success"></div><button id="adminCreateBtn" type="button">CREATE & APPROVE USER</button><div class="cloud-admin-actions"><button id="adminRefreshBtn" class="secondary" type="button">REFRESH LIST</button><button id="adminCloseBtn" class="secondary" type="button">CLOSE</button></div><h3>Approved users</h3><div id="adminUserList"><div class="cloud-auth-note">Loading…</div></div><div class="cloud-auth-note">SEND RESET emails a secure Firebase password-reset link. REVOKE removes planner access but does not delete the Firebase Authentication account.</div></div>`;
+    admin.innerHTML=`<div class="cloud-admin-box">
+      <h2>User Administration</h2>
+      <p>Create an approved planner account. New employees start with a temporary password and will be required to choose a new password at first sign-in.</p>
+      <label>Email</label><input id="adminNewEmail" type="email" inputmode="email" placeholder="coworker@example.com">
+      <label>Temporary password</label><input id="adminNewPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+      <div id="adminError" class="cloud-auth-error"></div><div id="adminSuccess" class="cloud-admin-success"></div>
+      <button id="adminCreateBtn" type="button">CREATE & APPROVE USER</button>
+      <div class="cloud-admin-actions"><button id="adminRefreshBtn" class="secondary" type="button">REFRESH LIST</button><button id="adminCloseBtn" class="secondary" type="button">CLOSE</button></div>
+      <h3>Planner users</h3><div id="adminUserList"><div class="cloud-auth-note">Loading…</div></div>
+      <div class="cloud-auth-note">REVOKE removes planner access while keeping the account listed. RESTORE returns access without changing the user's password.</div>
+      <div class="cloud-admin-legacy">
+        <h3>Restore an older revoked user</h3>
+        <p class="cloud-auth-note">Use this only for an account revoked before the Restore button was added. Copy its UID from Firebase Authentication.</p>
+        <label>Email</label><input id="adminRestoreEmail" type="email" inputmode="email" placeholder="coworker@example.com">
+        <label>Firebase UID</label><input id="adminRestoreUid" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the Authentication UID">
+        <button id="adminRestoreExistingBtn" class="cloud-restore-btn" type="button">RESTORE EXISTING USER</button>
+      </div>
+    </div>`;
     document.body.appendChild(admin);
 
     const head=document.querySelector("header .head");
@@ -59,6 +76,7 @@
     document.getElementById("adminCloseBtn").addEventListener("click",()=>admin.classList.add("hidden"));
     document.getElementById("adminRefreshBtn").addEventListener("click",renderApprovedUsers);
     document.getElementById("adminCreateBtn").addEventListener("click",adminCreateUser);
+    document.getElementById("adminRestoreExistingBtn").addEventListener("click",adminRestoreExistingUser);
   }
 
   function isAdminUser(user){return !!(user&&String(user.email||"").toLowerCase()===ADMIN_EMAIL)}
@@ -68,7 +86,7 @@
   function cloudErrorMessage(err){
     const code=String(err&&err.code||"");
     if(code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found"))return "Email or password was not accepted.";
-    if(code.includes("email-already-in-use"))return "That email already has a Firebase account.";
+    if(code.includes("email-already-in-use"))return "That email already has a Firebase account. If it was revoked before restore support was added, use Restore Existing User with its Firebase UID.";
     if(code.includes("weak-password"))return "Use a password with at least 6 characters.";
     if(code.includes("too-many-requests"))return "Too many attempts. Please wait a little and try again.";
     if(code.includes("network-request-failed"))return "Could not reach Firebase. Check your internet connection.";
@@ -104,8 +122,9 @@
   async function requiresTemporaryPasswordChange(user){
     if(isAdminUser(user))return false;
     const doc=await cloudDb.collection("approvedUsers").doc(user.uid).get();
-    if(!doc.exists)throw new Error("This account has not been approved for the Solvita Planner.");
-    return doc.data().mustResetPassword===true;
+    const data=doc.exists?(doc.data()||{}):null;
+    if(!data||data.approved!==true)throw new Error("This account has not been approved for the Solvita Planner.");
+    return data.mustResetPassword===true;
   }
   async function changeTemporaryPassword(){
     const user=cloudAuth.currentUser;if(!user)return;
@@ -139,12 +158,20 @@
       if(snap.empty){list.innerHTML='<div class="cloud-auth-note">No coworker accounts have been approved yet.</div>';return}
       list.innerHTML="";
       snap.forEach(doc=>{
-        const d=doc.data()||{};const row=document.createElement("div");row.className="cloud-admin-row";
-        row.innerHTML=`<div class="who"><div class="email"></div><div class="uid"></div><div class="status"></div></div><div class="cloud-user-actions"><button class="cloud-reset-btn" type="button">SEND RESET</button><button class="cloud-revoke-btn" type="button">REVOKE</button></div>`;
+        const d=doc.data()||{},revoked=d.approved===false;const row=document.createElement("div");row.className="cloud-admin-row"+(revoked?" revoked":"");
+        row.innerHTML=`<div class="who"><div class="email"></div><div class="uid"></div><div class="status"></div></div><div class="cloud-user-actions"><button class="cloud-reset-btn" type="button">SEND RESET</button><button class="cloud-access-btn" type="button"></button></div>`;
         row.querySelector(".email").textContent=d.email||"(no email)";row.querySelector(".uid").textContent=doc.id;
-        row.querySelector(".status").textContent=d.mustResetPassword?"Temporary password — change required":"Password setup complete";
-        row.querySelector(".cloud-reset-btn").addEventListener("click",()=>adminSendPasswordReset(doc.id,d.email||""));
-        row.querySelector(".cloud-revoke-btn").addEventListener("click",()=>adminRevokeUser(doc.id,d.email||"this user"));list.appendChild(row);
+        row.querySelector(".status").textContent=revoked?"Access revoked":d.mustResetPassword?"Temporary password — change required":"Password setup complete";
+        const reset=row.querySelector(".cloud-reset-btn"),access=row.querySelector(".cloud-access-btn");
+        if(revoked){
+          reset.style.display="none";access.textContent="RESTORE";access.className="cloud-access-btn cloud-restore-btn";
+          access.addEventListener("click",()=>adminRestoreUser(doc.id,d.email||"this user"));
+        }else{
+          reset.addEventListener("click",()=>adminSendPasswordReset(doc.id,d.email||""));
+          access.textContent="REVOKE";access.className="cloud-access-btn cloud-revoke-btn";
+          access.addEventListener("click",()=>adminRevokeUser(doc.id,d.email||"this user"));
+        }
+        list.appendChild(row);
       });
     }catch(err){list.innerHTML='<div class="cloud-auth-error" style="display:block">'+cloudErrorMessage(err)+'</div>'}
   }
@@ -182,11 +209,81 @@
   async function adminRevokeUser(uid,email){
     if(!isAdminUser(cloudAuth.currentUser))return;
     if(!confirm("Revoke planner access for "+email+"?"))return;
-    try{await cloudDb.collection("approvedUsers").doc(uid).delete();await renderApprovedUsers()}catch(err){alert(cloudErrorMessage(err))}
+    try{
+      await cloudDb.collection("approvedUsers").doc(uid).set({
+        approved:false,
+        revokedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        revokedBy:cloudAuth.currentUser.email||ADMIN_EMAIL
+      },{merge:true});
+      await renderApprovedUsers();
+    }catch(err){alert(cloudErrorMessage(err))}
+  }
+  async function adminRestoreUser(uid,email){
+    if(!isAdminUser(cloudAuth.currentUser))return;
+    if(!confirm("Restore planner access for "+email+"?"))return;
+    const ok=document.getElementById("adminSuccess"),errBox=document.getElementById("adminError");ok.style.display="none";errBox.style.display="none";
+    try{
+      await cloudDb.collection("approvedUsers").doc(uid).set({
+        approved:true,
+        restoredAt:firebase.firestore.FieldValue.serverTimestamp(),
+        restoredBy:cloudAuth.currentUser.email||ADMIN_EMAIL,
+        revokedAt:firebase.firestore.FieldValue.delete(),
+        revokedBy:firebase.firestore.FieldValue.delete()
+      },{merge:true});
+      ok.textContent="Planner access restored for "+email+".";ok.style.display="block";await renderApprovedUsers();
+    }catch(err){errBox.textContent=cloudErrorMessage(err);errBox.style.display="block"}
+  }
+  async function adminRestoreExistingUser(){
+    if(!isAdminUser(cloudAuth.currentUser))return;
+    const email=(document.getElementById("adminRestoreEmail").value||"").trim().toLowerCase();
+    const uid=(document.getElementById("adminRestoreUid").value||"").trim();
+    const ok=document.getElementById("adminSuccess"),errBox=document.getElementById("adminError"),btn=document.getElementById("adminRestoreExistingBtn");
+    ok.style.display="none";errBox.style.display="none";
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||uid.length<8||!/^[A-Za-z0-9_-]+$/.test(uid)){
+      errBox.textContent="Enter the user's email and the exact UID from Firebase Authentication.";errBox.style.display="block";return;
+    }
+    btn.disabled=true;btn.textContent="RESTORING…";
+    try{
+      const ref=cloudDb.collection("approvedUsers").doc(uid),existing=await ref.get();
+      if(existing.exists&&(existing.data()||{}).approved===true)throw new Error("That UID is already approved.");
+      await ref.set({
+        email,
+        approved:true,
+        mustResetPassword:false,
+        restoredAt:firebase.firestore.FieldValue.serverTimestamp(),
+        restoredBy:cloudAuth.currentUser.email||ADMIN_EMAIL
+      },{merge:true});
+      document.getElementById("adminRestoreEmail").value="";document.getElementById("adminRestoreUid").value="";
+      ok.textContent="Existing account restored: "+email+". The user can sign in with their previous password.";ok.style.display="block";await renderApprovedUsers();
+    }catch(err){errBox.textContent=cloudErrorMessage(err);errBox.style.display="block"}
+    finally{btn.disabled=false;btn.textContent="RESTORE EXISTING USER"}
   }
 
   function donorCloudCopy(d){return JSON.parse(JSON.stringify(d))}
   function donorJson(d){try{return JSON.stringify(donorCloudCopy(d))}catch{return ""}}
+  function stopCloudListeners(){
+    if(cloudUnsub){cloudUnsub();cloudUnsub=null}
+    if(cloudApprovalUnsub){cloudApprovalUnsub();cloudApprovalUnsub=null}
+    clearTimeout(cloudSyncTimer);cloudSyncTimer=null;
+  }
+  function endRevokedSession(message){
+    if(cloudAccessRevoking)return;
+    cloudAccessRevoking=true;cloudReady=false;stopCloudListeners();cloudStatusText("CLOUD: ACCESS REVOKED","bad");
+    showAuthMessage(message||"Your planner access has been revoked. Contact the planner administrator to restore it.",true);
+    document.getElementById("cloudAuthGate").classList.remove("hidden");
+    cloudAuth.signOut().catch(err=>console.warn("Revoked user sign-out",err)).finally(()=>{cloudAccessRevoking=false});
+  }
+  function watchCloudApproval(user){
+    if(cloudApprovalUnsub){cloudApprovalUnsub();cloudApprovalUnsub=null}
+    if(isAdminUser(user))return;
+    cloudApprovalUnsub=cloudDb.collection("approvedUsers").doc(user.uid).onSnapshot(doc=>{
+      const data=doc.exists?(doc.data()||{}):null;
+      if(!data||data.approved!==true)endRevokedSession();
+    },err=>{
+      if(String(err&&err.code||"").includes("permission-denied"))endRevokedSession();
+      else console.error("Approval listener error",err);
+    });
+  }
   function scheduleCloudDonorSync(){if(!cloudReady||cloudApplying)return;clearTimeout(cloudSyncTimer);cloudSyncTimer=setTimeout(cloudSyncNow,650)}
   async function cloudSyncNow(){
     if(!cloudReady||cloudApplying||!cloudDb)return;
@@ -206,19 +303,24 @@
     }finally{cloudApplying=false}
   }
   async function startCloudDonorSync(user){
-    if(cloudUnsub){cloudUnsub();cloudUnsub=null}cloudReady=false;cloudKnown.clear();cloudStatusText("CLOUD: CONNECTING");
+    stopCloudListeners();cloudReady=false;cloudKnown.clear();cloudStatusText("CLOUD: CONNECTING");
     try{
       const localBefore=cloneData(donors);const snap=await cloudDb.collection("donors").get();const remote=new Map();snap.forEach(doc=>remote.set(doc.id,{...doc.data(),id:doc.id}));
       for(const d of localBefore)if(!remote.has(d.id))await cloudDb.collection("donors").doc(d.id).set(donorCloudCopy(d));
       const refreshed=await cloudDb.collection("donors").get();donors=[];cloudKnown.clear();refreshed.forEach(doc=>{const d={...doc.data(),id:doc.id};donors.push(d);cloudKnown.set(d.id,donorJson(d))});
       localStorage.setItem(APPKEY,JSON.stringify(donors));cloudReady=true;cloudStatusText("CLOUD: SYNCED","ok");document.getElementById("cloudAuthGate").classList.add("hidden");
       const out=document.getElementById("cloudSignOutBtn");if(out)out.style.display="inline-block";const ab=document.getElementById("cloudAdminBtn");if(ab)ab.style.display=isAdminUser(user)?"inline-block":"none";
-      renderBoard();cloudUnsub=cloudDb.collection("donors").onSnapshot(applyCloudSnapshot,err=>{console.error("Cloud listener error",err);cloudStatusText("CLOUD: CONNECTION ERROR","bad")});
+      renderBoard();watchCloudApproval(user);cloudUnsub=cloudDb.collection("donors").onSnapshot(applyCloudSnapshot,err=>{
+        console.error("Cloud listener error",err);
+        if(String(err&&err.code||"").includes("permission-denied")&&!isAdminUser(user))endRevokedSession();
+        else cloudStatusText("CLOUD: CONNECTION ERROR","bad");
+      });
     }catch(err){
-      console.error("Cloud startup failed",err);cloudStatusText("CLOUD: ERROR","bad");const box=document.getElementById("cloudAuthError");box.textContent="Signed in, but the shared donor database could not be opened: "+cloudErrorMessage(err);box.style.display="block";document.getElementById("cloudAuthGate").classList.remove("hidden");
+      stopCloudListeners();console.error("Cloud startup failed",err);cloudStatusText("CLOUD: ERROR","bad");const box=document.getElementById("cloudAuthError");box.textContent="Signed in, but the shared donor database could not be opened: "+cloudErrorMessage(err);box.style.display="block";document.getElementById("cloudAuthGate").classList.remove("hidden");
     }
   }
   async function handleAuthenticatedUser(user){
+    cloudAccessRevoking=false;
     document.getElementById("cloudEmail").value=user.email||"";document.getElementById("cloudAuthError").style.display="none";document.getElementById("cloudAuthSuccess").style.display="none";
     try{
       if(await requiresTemporaryPasswordChange(user)){
@@ -238,7 +340,7 @@
       cloudAuth=firebase.auth();cloudDb=firebase.firestore();cloudAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err=>console.warn("Auth persistence",err));try{cloudDb.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch{}
       cloudAuth.onAuthStateChanged(user=>{
         if(user){handleAuthenticatedUser(user)}
-        else{cloudReady=false;if(cloudUnsub){cloudUnsub();cloudUnsub=null}document.getElementById("cloudAuthGate").classList.remove("hidden");document.getElementById("cloudPasswordModal").classList.add("hidden");const out=document.getElementById("cloudSignOutBtn");if(out)out.style.display="none";const ab=document.getElementById("cloudAdminBtn");if(ab)ab.style.display="none";document.getElementById("cloudAdminModal").classList.add("hidden");cloudStatusText("CLOUD: SIGN IN")}
+        else{cloudReady=false;stopCloudListeners();document.getElementById("cloudAuthGate").classList.remove("hidden");document.getElementById("cloudPasswordModal").classList.add("hidden");const out=document.getElementById("cloudSignOutBtn");if(out)out.style.display="none";const ab=document.getElementById("cloudAdminBtn");if(ab)ab.style.display="none";document.getElementById("cloudAdminModal").classList.add("hidden");cloudStatusText("CLOUD: SIGN IN")}
       });
     }catch(err){console.error(err);cloudStatusText("CLOUD: UNAVAILABLE","bad");const box=document.getElementById("cloudAuthError");box.textContent="Firebase could not start: "+cloudErrorMessage(err);box.style.display="block"}
   }
