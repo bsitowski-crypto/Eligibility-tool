@@ -243,6 +243,17 @@
     );
   }
 
+  async function embedMascot(pdf,mascot){
+    if(!mascot)return null;
+    let bytes=mascot.imageBytes||null;
+    if(!bytes&&mascot.imageUrl){
+      const response=await fetch(mascot.imageUrl,{cache:"force-cache"});
+      if(!response.ok)throw new Error("Animal portrait returned "+response.status);
+      bytes=await response.arrayBuffer();
+    }
+    return bytes?pdf.embedPng(bytes):null;
+  }
+
   async function createCasePdf(data){
     if(!window.PDFLib)throw new Error("The PDF generator did not load.");
     const {PDFDocument,StandardFonts,rgb}=window.PDFLib;
@@ -269,6 +280,10 @@
     const supplies=normalizeSupplies(data);
     const layout=chooseLayout(sections,supplies,fonts);
     const cfg=layout.cfg;
+    let mascotImage=null;
+    try{mascotImage=await embedMascot(pdf,data.mascot)}catch(err){
+      console.warn("Case PDF animal portrait",err);
+    }
 
     // The case document intentionally has exactly one landscape letter page.
     const page=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);
@@ -277,10 +292,30 @@
       x:MARGIN,y:PAGE_HEIGHT-28,size:14,font:bold,color:white
     });
     const header="CASE DOCUMENT";
+    const mascotSize=34;
+    const mascotX=PAGE_WIDTH-MARGIN-mascotSize;
+    const mascotLabel=data.mascot
+      ?clean(data.mascot.label).toUpperCase()+" - REV "+
+        Math.max(1,Number.parseInt(data.mascot.revision,10)||1)
+      :"";
+    const headerRight=mascotLabel?mascotX-12:PAGE_WIDTH-MARGIN;
     page.drawText(header,{
-      x:PAGE_WIDTH-MARGIN-bold.widthOfTextAtSize(header,9.2),
+      x:headerRight-bold.widthOfTextAtSize(header,9.2),
       y:PAGE_HEIGHT-27,size:9.2,font:bold,color:white
     });
+    if(mascotImage){
+      page.drawImage(mascotImage,{
+        x:mascotX,y:PAGE_HEIGHT-5-mascotSize,
+        width:mascotSize,height:mascotSize
+      });
+    }
+    if(mascotLabel){
+      const mascotLabelSize=5.2;
+      page.drawText(mascotLabel,{
+        x:PAGE_WIDTH-MARGIN-bold.widthOfTextAtSize(mascotLabel,mascotLabelSize),
+        y:HEADER_BOTTOM+1.8,size:mascotLabelSize,font:bold,color:white
+      });
+    }
 
     const donorLines=wrapText(bold,donor,8.7,420);
     donorLines.slice(0,2).forEach((text,index)=>page.drawText(text,{
@@ -537,7 +572,11 @@
       fontSize:cfg.size,
       caseHeight:Number(layout.leftHeight.toFixed(1)),
       supplyHeight:Number(layout.supplyLayout.height.toFixed(1)),
-      supplyColumns:layout.supplyLayout.columns
+      supplyColumns:layout.supplyLayout.columns,
+      mascot:data.mascot?{
+        key:clean(data.mascot.key),
+        revision:Math.max(1,Number.parseInt(data.mascot.revision,10)||1)
+      }:null
     };
     return pdf.save();
   }

@@ -50,7 +50,11 @@
 
     const donorRow=sections.flatMap(section=>section.rows).find(row=>/^Donor\s*:/i.test(row))||"";
     const donor=donorRow.replace(/^Donor\s*:\s*/i,"")||"Case document";
-    return {donor,generated:new Date().toLocaleString(),sections,supplies};
+    const data={donor,generated:new Date().toLocaleString(),sections,supplies};
+    if(window.PDXPlannerMascot?.markerForCurrent){
+      data.mascot=window.PDXPlannerMascot.markerForCurrent(data);
+    }
+    return data;
   }
 
   function resetPdf(){

@@ -16,6 +16,7 @@
     "freshHumerus","freshProxHumerus","freshProxFemur",
     "freshKnee","freshAnkle","silvieElbow","cartilage","calvarium"
   ]);
+  const SKIN_IDS=new Set(["anteriorSkin","posteriorSkin","legSkin"]);
   const HEART_IDS=new Set(["heartArtivion","heartLeMaitre"]);
 
   function key(value){
@@ -66,6 +67,17 @@
       output.push({c:"Supplies",n:"Cord Clamps",q:count,note});
     }
     return output;
+  }
+
+  function applyAdiposeBoneTrayRule(items,recovery){
+    if(!Array.isArray(items))return items;
+    const ids=recoveryIds(recovery);
+    const adiposeOnlyNonSkinSelection=ids.includes("adipose")&&
+      ids.every(id=>id==="adipose"||SKIN_IDS.has(id));
+    if(!adiposeOnlyNonSkinSelection)return items;
+    return items
+      .filter(item=>key(item?.n)!=="bone tray")
+      .map(item=>Object.assign({},item));
   }
 
   function rank(item){
@@ -212,7 +224,8 @@
     let items;
     try{items=latestSupplyItems}catch{return []}
     if(!Array.isArray(items))return [];
-    const corrected=applyClampRule?applyCordClampRule(items,recovery):items;
+    const trayCorrected=applyClampRule?applyAdiposeBoneTrayRule(items,recovery):items;
+    const corrected=applyClampRule?applyCordClampRule(trayCorrected,recovery):trayCorrected;
     const ordered=orderItems(corrected);
     items.splice(0,items.length,...ordered);
     render(items);
@@ -249,7 +262,7 @@
 
   const api={
     key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,
-    applyCordClampRule,cultureQuantity
+    applyCordClampRule,applyAdiposeBoneTrayRule,cultureQuantity
   };
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
