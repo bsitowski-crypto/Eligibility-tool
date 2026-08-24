@@ -137,7 +137,7 @@
         try{if(typeof renderFunerals==="function")renderFunerals();}catch(_e){}
       }
       const ver=document.querySelector(".ver");
-      if(ver)ver.textContent="Version 9.10.11 — Side-Specific Grafts + Blade Rules";
+      if(ver)ver.textContent="Version 9.10.12 — Streamlined Case Document";
     }catch(err){console.warn("Directory recovery",err);}
   }
 
