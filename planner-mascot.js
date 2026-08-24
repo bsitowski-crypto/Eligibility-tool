@@ -19,7 +19,25 @@
     {key:"raccoon",label:"Raccoon"},
     {key:"koala",label:"Koala"},
     {key:"zebra",label:"Zebra"},
-    {key:"polar-bear",label:"Polar Bear"}
+    {key:"polar-bear",label:"Polar Bear"},
+    {key:"monarch-butterfly",label:"Monarch Butterfly"},
+    {key:"ladybug",label:"Ladybug"},
+    {key:"bumblebee",label:"Bumblebee"},
+    {key:"dragonfly",label:"Dragonfly"},
+    {key:"praying-mantis",label:"Praying Mantis"},
+    {key:"jewel-beetle",label:"Jewel Beetle"},
+    {key:"lion-cub",label:"Lion Cub"},
+    {key:"red-panda-cub",label:"Red Panda Cub"},
+    {key:"baby-elephant",label:"Baby Elephant"},
+    {key:"duckling",label:"Duckling"},
+    {key:"fawn",label:"Fawn"},
+    {key:"penguin-chick",label:"Penguin Chick"},
+    {key:"tyrannosaurus-rex",label:"T. Rex"},
+    {key:"triceratops",label:"Triceratops"},
+    {key:"stegosaurus",label:"Stegosaurus"},
+    {key:"brachiosaurus",label:"Brachiosaurus"},
+    {key:"ankylosaurus",label:"Ankylosaurus"},
+    {key:"velociraptor",label:"Velociraptor"}
   ]);
   const BY_KEY=new Map(ANIMALS.map(animal=>[animal.key,animal]));
 
@@ -147,7 +165,7 @@
 
   function install(){
     const version=root.document.querySelector(".ver");
-    if(version)version.textContent="Version 9.10.13 - Case Mascots + Supply Correction";
+    if(version)version.textContent="Version 9.10.14 - Expanded Case Mascots";
   }
 
   return {
