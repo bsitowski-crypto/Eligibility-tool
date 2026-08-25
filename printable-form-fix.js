@@ -31,7 +31,12 @@
         label:text(group),
         items:[...(group.nextElementSibling?.querySelectorAll("li")||[])].map(text).filter(Boolean)
       }));
-      return {title:text(section.querySelector("h3")),rows,groups};
+      const checklistElement=section.querySelector(".print-me-checklist");
+      const checklist=checklistElement?{
+        label:text(checklistElement.querySelector(".print-me-checklist-title")),
+        items:[...checklistElement.querySelectorAll(".print-me-checklist-item")].map(text).filter(Boolean)
+      }:null;
+      return {title:text(section.querySelector("h3")),rows,groups,checklist};
     }).filter(section=>section.title);
 
     const validatedIndex=sections.findIndex(section=>/validated graft list/i.test(section.title));

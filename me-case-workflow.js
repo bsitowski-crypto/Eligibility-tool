@@ -744,17 +744,18 @@
 
   function specimenLabels(data){
     const s=data.specimens;
-    if(s.required==="no")return ["None required"];
-    if(s.required!=="yes")return ["Requirements not confirmed"];
+    // The printed checklist is for affirmative ME requests only. A "No"
+    // response means there is nothing for the recovery team to complete.
+    if(s.required!=="yes")return [];
     const labels=[];
     if(s.urine)labels.push("Urine: "+s.urineQty+" red tube"+(Number(s.urineQty)===1?"":"s"));
     if(s.blood){
       for(const [color,tube] of Object.entries(s.tubes))if(tube.selected)labels.push(color+"-top blood: "+tube.qty);
     }
     if(s.vitreous)labels.push("Vitreous");
-    labels.push("Heart pathology required: "+(s.heartPathology==="yes"?"Yes":"No"));
-    labels.push("Heart slides required: "+(s.heartSlides==="yes"?"Yes":"No"));
-    labels.push("Return Residual Tissue: "+(s.heartTissueReturned==="yes"?"Yes":"No"));
+    if(s.heartPathology==="yes")labels.push("Heart pathology");
+    if(s.heartSlides==="yes")labels.push("Heart slides");
+    if(s.heartTissueReturned==="yes")labels.push("Return Residual Tissue");
     if(s.photos)labels.push("Photos");
     if(s.serology)labels.push("Serology results");
     if(s.physicalAssessment)labels.push("Physical Assessment");
@@ -778,7 +779,6 @@
     const restrictions=restrictionLabels(data);
     if(restrictions.length)rows.push("Restrictions: "+restrictions.join("; "));
     if(["with_restrictions","without_restrictions"].includes(data.clearance)){
-      rows.push("ME specimens/documents: "+specimenLabels(data).join("; "));
       const sources=[];
       if(data.documentation.mdiLog)sources.push("MDI log");
       if(data.documentation.iTransplant)sources.push("iTransplant");
@@ -905,8 +905,14 @@
     const section=document.createElement("div");
     section.className="print-section";
     section.dataset.meCasePrint="1";
-    const rows=summaryRows(activeData(),autopsy);
-    section.innerHTML=`<h3>Medical Examiner Case</h3><div class="print-info">${rows.map(row=>`<div>${escapeHtml(row)}</div>`).join("")}</div>`;
+    const data=activeData();
+    const rows=summaryRows(data,autopsy);
+    const requests=specimenLabels(data);
+    const checklist=requests.length?`<div class="print-me-checklist">
+      <div class="print-me-checklist-title">ME specimens / documents</div>
+      ${requests.map(request=>`<div class="print-me-checklist-item">${escapeHtml(request)}</div>`).join("")}
+    </div>`:"";
+    section.innerHTML=`<h3>Medical Examiner Case</h3><div class="print-info">${rows.map(row=>`<div>${escapeHtml(row)}</div>`).join("")}</div>${checklist}`;
     left.insertBefore(section,left.children[1]||null);
   }
 
@@ -998,6 +1004,7 @@
     validateData,
     restrictionReason,
     specimenSupplies,
+    specimenLabels,
     summaryRows
   };
 

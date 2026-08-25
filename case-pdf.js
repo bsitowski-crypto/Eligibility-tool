@@ -72,10 +72,15 @@
         items:(group.items||[]).map(clean).filter(Boolean)
       })).filter(group=>group.label);
       const labels=new Set(groups.map(group=>group.label.toLowerCase()));
+      const checklistItems=(section.checklist?.items||[]).map(clean).filter(Boolean);
       return {
         title:clean(section.title),
         rows:(section.rows||[]).map(clean).filter(Boolean),
         groups,
+        checklist:checklistItems.length?{
+          label:clean(section.checklist?.label)||"Checklist",
+          items:checklistItems
+        }:null,
         sideColumns:["left","middle","right"].every(label=>labels.has(label))
       };
     }).filter(section=>section.title);
@@ -97,6 +102,8 @@
       itemLine:size+1.7,
       groupSize:size+.15,
       groupLine:size+1.9,
+      checklistSize:Math.max(size-.05,4.6),
+      checklistLine:size+1.75,
       sectionSize:size+1.15,
       sectionLine:size+2.3,
       supplySize:size,
@@ -158,6 +165,21 @@
     return headerHeight+standardHeight+pfoHeight+2;
   }
 
+  function checklistHeight(checklist,width,cfg,fonts){
+    if(!checklist?.items?.length)return 0;
+    const labelLines=wrapText(
+      fonts.bold,checklist.label.toUpperCase(),cfg.groupSize,width-8
+    );
+    let height=Math.max(labelLines.length,1)*cfg.groupLine+1;
+    for(const item of checklist.items){
+      const lines=wrapText(
+        fonts.regular,item,cfg.checklistSize,width-24
+      );
+      height+=Math.max(lines.length,1)*cfg.checklistLine+2;
+    }
+    return height+1;
+  }
+
   function measureCase(sections,cfg,fonts){
     let height=0;
     for(const section of sections){
@@ -172,6 +194,7 @@
       section.rows,LEFT_WIDTH,cfg.infoSize,cfg.infoLine,
       cfg.rowPad,fonts.regular,""
     );
+    height+=checklistHeight(section.checklist,LEFT_WIDTH-4,cfg,fonts);
     if(section.sideColumns){
       height+=sideColumnsHeight(section.groups,LEFT_WIDTH-4,cfg,fonts);
     }else{
@@ -375,6 +398,40 @@
       return y;
     }
 
+    function drawChecklist(checklist,x,width,y){
+      if(!checklist?.items?.length)return y;
+      const labelLines=wrapText(
+        bold,checklist.label.toUpperCase(),cfg.groupSize,width-8
+      );
+      labelLines.forEach((text,index)=>page.drawText(text,{
+        x:x+3,y:y-cfg.groupSize-(index*cfg.groupLine),
+        size:cfg.groupSize,font:bold,color:blue
+      }));
+      y-=Math.max(labelLines.length,1)*cfg.groupLine+1;
+
+      for(const item of checklist.items){
+        const boxSize=Math.max(5.2,cfg.checklistSize*.9);
+        const lines=wrapText(
+          regular,item,cfg.checklistSize,width-24
+        );
+        const rowHeight=Math.max(lines.length,1)*cfg.checklistLine+2;
+        page.drawRectangle({
+          x:x+4,y:y-boxSize-.5,width:boxSize,height:boxSize,
+          borderColor:navy,borderWidth:.65
+        });
+        lines.forEach((text,index)=>page.drawText(text,{
+          x:x+boxSize+9,y:y-cfg.checklistSize-(index*cfg.checklistLine),
+          size:cfg.checklistSize,font:regular,color:ink
+        }));
+        y-=rowHeight;
+        page.drawLine({
+          start:{x,y:y+1.2},end:{x:x+width,y:y+1.2},
+          thickness:.25,color:line
+        });
+      }
+      return y-1;
+    }
+
     function drawSideColumns(groups,x,width,y){
       const gap=8;
       const columnWidth=(width-(gap*2))/3;
@@ -477,6 +534,9 @@
       caseY=drawGrid(
         section.rows,MARGIN,LEFT_WIDTH,caseY,cfg.infoSize,cfg.infoLine,
         cfg.rowPad,ink,""
+      );
+      caseY=drawChecklist(
+        section.checklist,MARGIN+2,LEFT_WIDTH-4,caseY
       );
       if(section.sideColumns){
         caseY=drawSideColumns(section.groups,MARGIN+2,LEFT_WIDTH-4,caseY);
