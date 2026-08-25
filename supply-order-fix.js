@@ -69,16 +69,22 @@
     return output;
   }
 
-  function applyAdiposeBoneTrayRule(items,recovery){
+  function applyBoneTrayRule(items,recovery){
     if(!Array.isArray(items))return items;
     const ids=recoveryIds(recovery);
     const adiposeOnlyNonSkinSelection=ids.includes("adipose")&&
       ids.every(id=>id==="adipose"||SKIN_IDS.has(id));
-    if(!adiposeOnlyNonSkinSelection)return items;
-    return items
-      .filter(item=>key(item?.n)!=="bone tray")
-      .map(item=>Object.assign({},item));
+    let boneTraySeen=false;
+    return items.flatMap(item=>{
+      if(key(item?.n)!=="bone tray")return [Object.assign({},item)];
+      if(adiposeOnlyNonSkinSelection||boneTraySeen)return [];
+      boneTraySeen=true;
+      return [Object.assign({},item,{q:1})];
+    });
   }
+
+  // Kept for compatibility with any code that used the earlier rule name.
+  const applyAdiposeBoneTrayRule=applyBoneTrayRule;
 
   function rank(item){
     const name=key(item?.n);
@@ -224,7 +230,7 @@
     let items;
     try{items=latestSupplyItems}catch{return []}
     if(!Array.isArray(items))return [];
-    const trayCorrected=applyClampRule?applyAdiposeBoneTrayRule(items,recovery):items;
+    const trayCorrected=applyClampRule?applyBoneTrayRule(items,recovery):items;
     const corrected=applyClampRule?applyCordClampRule(trayCorrected,recovery):trayCorrected;
     const ordered=orderItems(corrected);
     items.splice(0,items.length,...ordered);
@@ -262,7 +268,7 @@
 
   const api={
     key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,
-    applyCordClampRule,applyAdiposeBoneTrayRule,cultureQuantity
+    applyCordClampRule,applyBoneTrayRule,applyAdiposeBoneTrayRule,cultureQuantity
   };
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
