@@ -45,11 +45,11 @@
       <h3>Planner users</h3><div id="adminUserList"><div class="cloud-auth-note">Loading…</div></div>
       <div class="cloud-auth-note">REVOKE removes planner access while keeping the account listed. RESTORE returns access without changing the user's password.</div>
       <div class="cloud-admin-legacy">
-        <h3>Restore an older revoked user</h3>
-        <p class="cloud-auth-note">Use this only for an account revoked before the Restore button was added. Copy its UID from Firebase Authentication.</p>
+        <h3>Approve an existing Firebase account</h3>
+        <p class="cloud-auth-note">Use this when Firebase already has the email but the person does not appear in Planner users. This can happen if account creation stopped before planner approval finished. Copy the UID from Firebase Authentication.</p>
         <label>Email</label><input id="adminRestoreEmail" type="email" inputmode="email" placeholder="coworker@example.com">
         <label>Firebase UID</label><input id="adminRestoreUid" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste the Authentication UID">
-        <button id="adminRestoreExistingBtn" class="cloud-restore-btn" type="button">RESTORE EXISTING USER</button>
+        <button id="adminRestoreExistingBtn" class="cloud-restore-btn" type="button">APPROVE EXISTING ACCOUNT</button>
       </div>
     </div>`;
     document.body.appendChild(admin);
@@ -86,7 +86,7 @@
   function cloudErrorMessage(err){
     const code=String(err&&err.code||"");
     if(code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found"))return "Email or password was not accepted.";
-    if(code.includes("email-already-in-use"))return "That email already has a Firebase account. If it was revoked before restore support was added, use Restore Existing User with its Firebase UID.";
+    if(code.includes("email-already-in-use"))return "That email already has a Firebase login. This does not mean the person was revoked. Enter the same temporary password used on the first attempt so the planner can finish approval, or use Approve Existing Account below with the Firebase UID.";
     if(code.includes("weak-password"))return "Use a password with at least 6 characters.";
     if(code.includes("too-many-requests"))return "Too many attempts. Please wait a little and try again.";
     if(code.includes("network-request-failed"))return "Could not reach Firebase. Check your internet connection.";
@@ -175,6 +175,45 @@
       });
     }catch(err){list.innerHTML='<div class="cloud-auth-error" style="display:block">'+cloudErrorMessage(err)+'</div>'}
   }
+
+  function isCredentialMismatch(err){
+    const code=String(err&&err.code||"");
+    return code.includes("invalid-credential")||code.includes("wrong-password")||code.includes("user-not-found");
+  }
+  async function approveNewPlannerAccount(uid,email,extra){
+    await cloudDb.collection("approvedUsers").doc(uid).set({
+      email,
+      approved:true,
+      mustResetPassword:true,
+      createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy:cloudAuth.currentUser.email||ADMIN_EMAIL,
+      ...(extra||{})
+    },{merge:true});
+  }
+  async function finishIncompleteAccount(secondaryAuth,email,password){
+    try{
+      const cred=await secondaryAuth.signInWithEmailAndPassword(email,password);
+      const uid=cred.user.uid;
+      const ref=cloudDb.collection("approvedUsers").doc(uid);
+      const existing=await ref.get();
+      if(existing.exists){
+        const data=existing.data()||{};
+        if(data.approved===true)return {status:"already-approved",uid};
+        if(data.approved===false){
+          const revokedError=new Error("This account is listed as revoked. Use RESTORE next to the person in Planner users.");
+          revokedError.code="planner/account-revoked";
+          throw revokedError;
+        }
+      }
+      await approveNewPlannerAccount(uid,email,{
+        incompleteCreationRecoveredAt:firebase.firestore.FieldValue.serverTimestamp(),
+        incompleteCreationRecoveredBy:cloudAuth.currentUser.email||ADMIN_EMAIL
+      });
+      return {status:"recovered",uid};
+    }finally{
+      if(secondaryAuth.currentUser)await secondaryAuth.signOut().catch(err=>console.warn("Secondary sign-out",err));
+    }
+  }
   async function adminCreateUser(){
     if(!isAdminUser(cloudAuth.currentUser))return;
     const email=(document.getElementById("adminNewEmail").value||"").trim().toLowerCase();
@@ -183,18 +222,42 @@
     errBox.style.display="none";ok.style.display="none";
     if(!email||password.length<6){errBox.textContent="Enter a valid email and a temporary password of at least 6 characters.";errBox.style.display="block";return}
     btn.disabled=true;btn.textContent="CREATING…";
-    let secondary=null;
+    let secondaryAuth=null,createdUid="";
     try{
-      secondary=firebase.apps.find(a=>a.name==="userCreator")||firebase.initializeApp(firebaseConfig,"userCreator");
-      const secondaryAuth=secondary.auth();
+      const secondary=firebase.apps.find(a=>a.name==="userCreator")||firebase.initializeApp(firebaseConfig,"userCreator");
+      secondaryAuth=secondary.auth();
       const cred=await secondaryAuth.createUserWithEmailAndPassword(email,password);
-      const uid=cred.user.uid;
+      createdUid=cred.user.uid;
       await secondaryAuth.signOut();
-      await cloudDb.collection("approvedUsers").doc(uid).set({email,approved:true,mustResetPassword:true,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:cloudAuth.currentUser.email||ADMIN_EMAIL});
+      await approveNewPlannerAccount(createdUid,email);
       document.getElementById("adminNewEmail").value="";document.getElementById("adminNewPassword").value="";
       ok.textContent="User created and approved: "+email+". They will be required to change the temporary password at first sign-in.";ok.style.display="block";await renderApprovedUsers();
-    }catch(err){errBox.textContent=cloudErrorMessage(err);errBox.style.display="block"}
-    finally{btn.disabled=false;btn.textContent="CREATE & APPROVE USER"}
+    }catch(err){
+      if(String(err&&err.code||"").includes("email-already-in-use")&&secondaryAuth){
+        try{
+          const result=await finishIncompleteAccount(secondaryAuth,email,password);
+          document.getElementById("adminNewEmail").value="";document.getElementById("adminNewPassword").value="";
+          ok.textContent=result.status==="recovered"
+            ?"The Firebase login already existed, and its planner approval is now complete: "+email+". The temporary-password change is still required."
+            :"That account is already approved: "+email+".";
+          ok.style.display="block";
+          await renderApprovedUsers();
+        }catch(recoveryErr){
+          errBox.textContent=isCredentialMismatch(recoveryErr)
+            ?"Firebase already has this email, but the temporary password did not match. This does not mean the person was revoked. Enter exactly the same temporary password used on the first attempt, or use Approve Existing Account below with the Firebase UID."
+            :cloudErrorMessage(recoveryErr);
+          errBox.style.display="block";
+        }
+      }else{
+        errBox.textContent=createdUid
+          ?"The Firebase login was created, but planner approval did not finish. Leave the same email and temporary password entered, then tap Create & Approve User again to finish it."
+          :cloudErrorMessage(err);
+        errBox.style.display="block";
+      }
+    }finally{
+      if(secondaryAuth&&secondaryAuth.currentUser)await secondaryAuth.signOut().catch(err=>console.warn("Secondary sign-out",err));
+      btn.disabled=false;btn.textContent="CREATE & APPROVE USER";
+    }
   }
   async function adminSendPasswordReset(uid,email){
     if(!isAdminUser(cloudAuth.currentUser)||!email)return;
@@ -242,21 +305,23 @@
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||uid.length<8||!/^[A-Za-z0-9_-]+$/.test(uid)){
       errBox.textContent="Enter the user's email and the exact UID from Firebase Authentication.";errBox.style.display="block";return;
     }
-    btn.disabled=true;btn.textContent="RESTORING…";
+    btn.disabled=true;btn.textContent="APPROVING…";
     try{
       const ref=cloudDb.collection("approvedUsers").doc(uid),existing=await ref.get();
       if(existing.exists&&(existing.data()||{}).approved===true)throw new Error("That UID is already approved.");
       await ref.set({
         email,
         approved:true,
-        mustResetPassword:false,
-        restoredAt:firebase.firestore.FieldValue.serverTimestamp(),
-        restoredBy:cloudAuth.currentUser.email||ADMIN_EMAIL
+        mustResetPassword:true,
+        existingAccountApprovedAt:firebase.firestore.FieldValue.serverTimestamp(),
+        existingAccountApprovedBy:cloudAuth.currentUser.email||ADMIN_EMAIL,
+        revokedAt:firebase.firestore.FieldValue.delete(),
+        revokedBy:firebase.firestore.FieldValue.delete()
       },{merge:true});
       document.getElementById("adminRestoreEmail").value="";document.getElementById("adminRestoreUid").value="";
-      ok.textContent="Existing account restored: "+email+". The user can sign in with their previous password.";ok.style.display="block";await renderApprovedUsers();
+      ok.textContent="Existing Firebase account approved: "+email+". A password change will be required at the next sign-in.";ok.style.display="block";await renderApprovedUsers();
     }catch(err){errBox.textContent=cloudErrorMessage(err);errBox.style.display="block"}
-    finally{btn.disabled=false;btn.textContent="RESTORE EXISTING USER"}
+    finally{btn.disabled=false;btn.textContent="APPROVE EXISTING ACCOUNT"}
   }
 
   function donorCloudCopy(d){return JSON.parse(JSON.stringify(d))}
