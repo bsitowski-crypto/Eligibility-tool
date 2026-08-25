@@ -161,26 +161,30 @@
   function measureCase(sections,cfg,fonts){
     let height=0;
     for(const section of sections){
-      height+=sectionHeaderHeight(section.title,LEFT_WIDTH,cfg,fonts.bold)+2;
-      height+=gridHeight(
-        section.rows,LEFT_WIDTH,cfg.infoSize,cfg.infoLine,
-        cfg.rowPad,fonts.regular,""
-      );
-      if(section.sideColumns){
-        height+=sideColumnsHeight(section.groups,LEFT_WIDTH-4,cfg,fonts);
-      }else{
-        for(const group of section.groups){
-          const labelLines=wrapText(
-            fonts.bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
-          );
-          height+=Math.max(labelLines.length,1)*cfg.groupLine+1;
-          height+=gridHeight(
-            group.items,LEFT_WIDTH-8,cfg.itemSize,cfg.itemLine,
-            1.2,fonts.regular,"- "
-          );
-        }
+      height+=measureSection(section,cfg,fonts)+cfg.sectionGap;
+    }
+    return height;
+  }
+
+  function measureSection(section,cfg,fonts){
+    let height=sectionHeaderHeight(section.title,LEFT_WIDTH,cfg,fonts.bold)+2;
+    height+=gridHeight(
+      section.rows,LEFT_WIDTH,cfg.infoSize,cfg.infoLine,
+      cfg.rowPad,fonts.regular,""
+    );
+    if(section.sideColumns){
+      height+=sideColumnsHeight(section.groups,LEFT_WIDTH-4,cfg,fonts);
+    }else{
+      for(const group of section.groups){
+        const labelLines=wrapText(
+          fonts.bold,group.label.toUpperCase(),cfg.groupSize,LEFT_WIDTH-8
+        );
+        height+=Math.max(labelLines.length,1)*cfg.groupLine+1;
+        height+=gridHeight(
+          group.items,LEFT_WIDTH-8,cfg.itemSize,cfg.itemLine,
+          1.2,fonts.regular,"- "
+        );
       }
-      height+=cfg.sectionGap;
     }
     return height;
   }
@@ -273,6 +277,8 @@
     const muted=rgb(90/255,90/255,96/255);
     const line=rgb(214/255,214/255,220/255);
     const pale=rgb(247/255,247/255,249/255);
+    const mePink=rgb(253/255,236/255,240/255);
+    const mePinkHeader=rgb(248/255,216/255,225/255);
     const white=rgb(1,1,1);
     const donor=clean(data.donor||"Case document");
     const generated=clean(data.generated||new Date().toLocaleString());
@@ -333,10 +339,10 @@
       thickness:.7,color:line
     });
 
-    function drawSectionHeader(title,x,width,y){
+    function drawSectionHeader(title,x,width,y,background){
       const lines=wrapText(bold,title.toUpperCase(),cfg.sectionSize,width-12);
       const height=sectionHeaderHeight(title,width,cfg,bold);
-      page.drawRectangle({x,y:y-height+3,width,height,color:pale});
+      page.drawRectangle({x,y:y-height+3,width,height,color:background||pale});
       page.drawRectangle({x,y:y-height+3,width:3,height,color:purple});
       lines.forEach((text,index)=>page.drawText(text,{
         x:x+7,y:y-cfg.sectionSize-(index*cfg.sectionLine),
@@ -457,7 +463,17 @@
       });
     }
     for(const section of sections){
-      caseY=drawSectionHeader(section.title,MARGIN,LEFT_WIDTH,caseY);
+      const isMeCase=/^medical examiner case$/i.test(section.title)&&
+        section.rows.some(row=>/^ME Case:\s*Yes\b/i.test(row));
+      if(isMeCase){
+        const height=measureSection(section,cfg,fonts);
+        page.drawRectangle({
+          x:MARGIN,y:caseY-height,width:LEFT_WIDTH,height:height+3,color:mePink
+        });
+      }
+      caseY=drawSectionHeader(
+        section.title,MARGIN,LEFT_WIDTH,caseY,isMeCase?mePinkHeader:pale
+      );
       caseY=drawGrid(
         section.rows,MARGIN,LEFT_WIDTH,caseY,cfg.infoSize,cfg.infoLine,
         cfg.rowPad,ink,""
