@@ -36,6 +36,27 @@ const timeline=parser.timelineFor(data,new Date(2026,7,27,14,42));
 assert.strictEqual(timeline.start.getHours(),6);
 assert.deepStrictEqual(timeline.segments.map(x=>`${x.key}:${x.half}`),["2026-08-27:day","2026-08-27:night","2026-08-28:day"]);
 assert.deepStrictEqual(timeline.segments.map(x=>x.roles.primaryTech1.map(y=>y.name)),[["Bri G."],["Eleanor F."],["Tiana S."]]);
+
+const aTeam=parser.caseTeamAssignment(data,"A Team",new Date(2026,7,27,14,42));
+assert.strictEqual(aTeam.key,"2026-08-27");
+assert.strictEqual(aTeam.half,"day");
+assert.deepStrictEqual(Object.values(aTeam.selected).map(x=>x.initials),["TKS","BCJG","RKC"]);
+
+const bTeam=parser.caseTeamAssignment(data,"B Team",new Date(2026,7,27,14,42));
+assert.strictEqual(bTeam.key,"2026-08-27");
+assert.strictEqual(bTeam.half,"night");
+assert.deepStrictEqual(Object.values(bTeam.selected).map(x=>x.initials),["TKS","EMF","KLH3"]);
+
+const front24=parser.caseTeamAssignment(data,"24 Front",new Date(2026,7,27,14,42));
+assert.deepStrictEqual(Object.values(front24.selected).map(x=>x.initials),["KJ","JTJ","EMF"]);
+
+const back24=parser.caseTeamAssignment(data,"24 Back",new Date(2026,7,27,3,0));
+assert.strictEqual(back24.key,"2026-08-26");
+assert.strictEqual(back24.half,"night");
+
+const nextA=parser.caseTeamSlot("A Team",new Date(2026,7,27,19,0));
+assert.strictEqual(nextA.key,"2026-08-28");
+assert.strictEqual(nextA.shiftStart.getHours(),6);
 assert.ok(data.notices.some(x=>x.includes("November 2025")&&x.includes("December 2025")));
 assert.ok(data.notices.some(x=>x.includes("CMT3")));
 

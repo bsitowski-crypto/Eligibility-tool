@@ -44,6 +44,7 @@
 .staffing-axis-mark{position:absolute;top:0;bottom:0;border-left:1px solid #e2e7ee}.staffing-axis-mark strong{position:absolute;top:18px;left:0;transform:translateX(-50%);font-size:11px;color:#617087;font-variant-numeric:tabular-nums}.staffing-axis-mark small{position:absolute;top:3px;left:0;transform:translateX(-50%);font-size:8px;color:#7a8799;font-weight:900}.staffing-axis-mark.edge-end strong,.staffing-axis-mark.edge-end small{transform:translateX(-100%)}.staffing-axis-mark.edge-start strong,.staffing-axis-mark.edge-start small{transform:none}
 .staffing-rows{position:relative}.staffing-row{display:grid;grid-template-columns:var(--staff-label) minmax(0,1fr);min-height:28px}.staffing-role{display:flex;align-items:center;padding:3px 12px 3px 0;background:#fafbfd;font-size:12px;font-weight:800}.staffing-role .mobile{display:none}.staffing-lane{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));position:relative}.staffing-segment{min-width:0;display:flex;align-items:center;justify-content:center;padding:3px 5px;border-top:1px solid #fff;font-size:11px;font-weight:800;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.staffing-segment.empty{color:#68778c;background:#edf0f4!important}.staffing-segment.admin.tone-0{background:#dce1e8}.staffing-segment.admin.tone-1{background:#c3cad4}.staffing-segment.coordinator.tone-0{background:#c5def2}.staffing-segment.coordinator.tone-1{background:#a7cce8}.staffing-segment.circulator.tone-0{background:#dbcaf3}.staffing-segment.circulator.tone-1{background:#bea5e8}.staffing-segment.tech.tone-0{background:#cfe9d6}.staffing-segment.tech.tone-1{background:#a9dcb7}.staffing-segment.backup-circulator.tone-0{background:#ecdef8}.staffing-segment.backup-circulator.tone-1{background:#d7c2ed}.staffing-segment.backup-tech.tone-0{background:#e0f0e4}.staffing-segment.backup-tech.tone-1{background:#c2e2ca}
 .staffing-gridline{position:absolute;top:0;bottom:0;border-left:1px solid #dfe5ec;pointer-events:none}.staffing-shiftline{border-left:2px solid #7a8799}.staffing-now{position:absolute;top:-42px;bottom:-12px;width:3px;background:#df3740;z-index:4;pointer-events:none}.staffing-now-label{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:#df3740;color:#fff;border-radius:7px;padding:4px 6px;font-size:9px;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+.staffing-team-note{margin-top:9px;padding:8px 10px;border-radius:8px;background:#eef5fb;color:#36546f;font-size:12px;font-weight:700}.staffing-team-note.warning{background:#fff5dc;color:#674b0b}
 #staffingScheduleModal{position:fixed;inset:0;z-index:2400;background:#071f3eee;display:flex;align-items:center;justify-content:center;padding:18px}#staffingScheduleModal.hidden{display:none!important}.staffing-modal-box{width:min(1050px,100%);max-height:92vh;overflow:auto;background:#fff;color:#17243a;border-radius:18px;box-shadow:0 18px 55px #0007}.staffing-modal-head{background:#14233b;color:#fff;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}.staffing-modal-head h2{margin:0;font-size:21px}.staffing-modal-head button{border:1px solid #ffffff66;background:transparent;color:#fff;border-radius:8px;padding:8px 10px;font-weight:800}.staffing-modal-body{padding:20px}.staffing-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:18px}.staffing-step{padding:10px;text-align:center;background:#e9edf3;color:#65738a;border-radius:9px;font-weight:800}.staffing-step.active{background:#d9e6f6;color:#174675}.staffing-upload{border:2px dashed #bcc8d8;border-radius:13px;padding:28px 18px;text-align:center;background:#fafbfd}.staffing-upload h3{margin:0 0 6px}.staffing-upload p{color:#66748a;margin:0 0 15px}.staffing-upload input{display:none}.staffing-file-button{display:inline-block;background:#285d91;color:#fff;padding:11px 15px;border-radius:9px;font-weight:850;cursor:pointer}.staffing-import-error{display:none;background:#fff0f0;color:#8a1d1d;border-left:5px solid #c93535;padding:11px;border-radius:8px;margin-top:13px}.staffing-import-error.show{display:block}.staffing-file-summary{border:1px solid #d7dee8;border-radius:11px;padding:13px 15px;display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.staffing-file-summary strong{overflow-wrap:anywhere}.staffing-ready{color:#217044;font-weight:850;white-space:nowrap}.staffing-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}.staffing-stat{background:#f3f6fa;border-radius:9px;padding:11px}.staffing-stat strong{display:block}.staffing-stat small{color:#68778c}.staffing-notices{display:grid;gap:7px;margin-bottom:14px}.staffing-notice{background:#fff5dc;color:#674b0b;border-radius:8px;padding:9px 11px;font-size:13px}.staffing-preview-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 8px}.staffing-preview-head h3{margin:0}.staffing-preview-head select{width:auto;min-width:190px;padding:8px;font-size:14px}.staffing-preview-table{width:100%;border-collapse:collapse}.staffing-preview-table th,.staffing-preview-table td{text-align:left;padding:8px 9px;border-bottom:1px solid #dfe5ed}.staffing-preview-table th{background:#edf1f6;color:#617087;font-size:12px}.staffing-preview-table td:first-child{font-weight:800}.staffing-modal-note{font-size:12px;color:#68778c;margin-top:11px}.staffing-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}.staffing-actions button{border:1px solid #cdd5e0;background:#fff;color:#33435a;border-radius:9px;padding:11px 14px;font-weight:850}.staffing-actions button.primary{background:#285d91;border-color:#285d91;color:#fff}.staffing-actions button:disabled{opacity:.55}.staffing-success{text-align:center;padding:24px}.staffing-success strong{display:block;font-size:23px;color:#217044;margin-bottom:7px}
 @media(max-width:700px){.staffing-tracker-head{height:52px}.staffing-tracker-title{font-size:16px}.staffing-tracker-meta{display:none}.staffing-collapse{display:block}.staffing-chart{--staff-label:132px;padding:0 8px 8px}.staffing-axis{height:43px}.staffing-axis-mark:nth-child(even) strong{display:none}.staffing-row{min-height:39px}.staffing-role{font-size:10px;padding-right:7px}.staffing-role .desktop{display:none}.staffing-role .mobile{display:inline}.staffing-segment{font-size:9px;padding:2px;white-space:normal;line-height:1.05}.staffing-chart.collapsed{display:none}.staffing-modal-body{padding:14px}.staffing-steps{gap:6px}.staffing-step{font-size:12px;padding:9px 3px}.staffing-file-summary{align-items:flex-start;flex-direction:column}.staffing-stats{grid-template-columns:1fr}.staffing-preview-head{align-items:stretch;flex-direction:column}.staffing-preview-head select{width:100%}.staffing-preview-table,.staffing-preview-table tbody,.staffing-preview-table tr,.staffing-preview-table td{display:block}.staffing-preview-table thead{display:none}.staffing-preview-table tr{padding:8px 0;border-bottom:1px solid #dfe5ed}.staffing-preview-table td{border:0;padding:3px 0}.staffing-preview-table td:first-child{margin-bottom:3px}.staffing-preview-table td:nth-child(2)::before{content:"0600–1800  ";font-size:11px;color:#617087;font-weight:850}.staffing-preview-table td:nth-child(3)::before{content:"1800–0600  ";font-size:11px;color:#617087;font-weight:850}.staffing-actions{flex-direction:column-reverse}.staffing-actions button{width:100%}}
 @media print{#staffingTracker,#staffingScheduleModal{display:none!important}}
@@ -70,6 +71,7 @@
       modal.addEventListener("click",event=>{if(event.target===modal)closeModal()});
       document.addEventListener("keydown",event=>{if(event.key==="Escape"&&!modal.classList.contains("hidden"))closeModal()});
     }
+    installTeamAutofill();
     renderTracker();
     if(!clockTimer)clockTimer=setInterval(renderTracker,30000);
   }
@@ -144,6 +146,42 @@
   }
   function bindCollapse(){const button=document.querySelector("#staffingTracker .staffing-collapse");if(button)button.addEventListener("click",()=>{trackerCollapsed=!trackerCollapsed;renderTracker()})}
 
+  function installTeamAutofill(){
+    const team=document.getElementById("caseTeam");if(!team||team.dataset.staffingAutofillBound)return;
+    team.dataset.staffingAutofillBound="true";
+    const card=team.closest(".card");
+    if(card&&!document.getElementById("staffingTeamNote")){
+      const note=document.createElement("div");note.id="staffingTeamNote";note.className="staffing-team-note";note.textContent="Choose a team to fill the scheduled staff automatically. You can change any name afterward.";card.appendChild(note);
+    }
+    team.addEventListener("change",()=>autofillCaseTeam(team.value));
+  }
+  function scheduledShiftLabel(assignment){
+    const date=assignment.shiftStart.toLocaleDateString(undefined,{weekday:"short",day:"2-digit",month:"short"}).toUpperCase();
+    return `${date} · ${assignment.half==="day"?"0600–1800":"1800–0600"}`;
+  }
+  function setScheduledStaff(select,person){
+    if(!select)return {changed:false,missing:null};
+    if(!person){select.value="";return {changed:true,missing:null}}
+    const exists=[...select.options].some(option=>option.value===person.initials);
+    if(!exists){select.value="";return {changed:true,missing:person.initials}}
+    select.value=person.initials;return {changed:true,missing:null};
+  }
+  function autofillCaseTeam(teamName){
+    const note=document.getElementById("staffingTeamNote");
+    if(!teamName){if(note){note.classList.remove("warning");note.textContent="Choose a team to fill the scheduled staff automatically. You can change any name afterward."}return}
+    const assignment=window.StaffingScheduleParser?.caseTeamAssignment?.(activeSchedule,teamName,new Date());
+    if(!activeSchedule?.days||!assignment?.found){
+      if(note){note.classList.add("warning");note.textContent=`No active schedule was found for ${assignment?scheduledShiftLabel(assignment):teamName}. Choose the staff manually.`}return;
+    }
+    const fields=["circulator","tech1","tech2"],missing=[];
+    for(const field of fields){const result=setScheduledStaff(document.getElementById(field),assignment.selected[field]);if(result.missing)missing.push(result.missing)}
+    for(const field of fields)document.getElementById(field)?.dispatchEvent(new Event("change",{bubbles:true}));
+    if(note){
+      note.classList.toggle("warning",!!missing.length);
+      note.textContent=missing.length?`Scheduled staff loaded for ${scheduledShiftLabel(assignment)}, but ${missing.join(", ")} ${missing.length===1?"is":"are"} not in the Staff Directory. Choose that role manually.`:`Scheduled staff loaded for ${scheduledShiftLabel(assignment)}. You can change any name for this case.`;
+    }
+  }
+
   function connectFirebase(){
     if(!window.firebase?.apps?.length){setTimeout(connectFirebase,250);return}
     auth=firebase.auth();db=firebase.firestore();
@@ -157,5 +195,5 @@
 
   function init(){installUI();connectFirebase()}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init);else init();
-  window.StaffingSchedule={render:renderTracker,parseFile:async file=>window.StaffingScheduleParser.parseWorkbook(await file.arrayBuffer(),window.fflate.unzipSync),getActive:()=>activeSchedule};
+  window.StaffingSchedule={render:renderTracker,parseFile:async file=>window.StaffingScheduleParser.parseWorkbook(await file.arrayBuffer(),window.fflate.unzipSync),getActive:()=>activeSchedule,fillCaseTeam:()=>autofillCaseTeam(document.getElementById("caseTeam")?.value||"")};
 })();

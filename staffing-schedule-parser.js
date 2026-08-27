@@ -14,6 +14,12 @@
   };
   const INACTIVE_CODES=new Set(["CMT3","MRH2"]);
   const ROLE_KEYS=["admin","coordinator","primaryCirculator","primaryTech1","primaryTech2","backupCirculator","backupTech1","backupTech2"];
+  const CASE_TEAM_ROLES={
+    "A Team":{half:"day",circulator:"primaryCirculator",tech1:"primaryTech1",tech2:"primaryTech2"},
+    "B Team":{half:"night",circulator:"primaryCirculator",tech1:"primaryTech1",tech2:"primaryTech2"},
+    "24 Front":{half:"day",circulator:"backupCirculator",tech1:"backupTech1",tech2:"backupTech2"},
+    "24 Back":{half:"night",circulator:"backupCirculator",tech1:"backupTech1",tech2:"backupTech2"}
+  };
 
   function xmlDecode(value){
     return String(value||"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&").replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(parseInt(n,16)));
@@ -115,6 +121,26 @@
     });
     return {start,segments};
   }
+  function caseTeamSlot(team,now){
+    const config=CASE_TEAM_ROLES[team];if(!config)return null;
+    const current=now instanceof Date&&!Number.isNaN(now.getTime())?new Date(now):new Date();
+    const shiftStart=new Date(current);shiftStart.setSeconds(0,0);
+    if(config.half==="day"){
+      shiftStart.setHours(6,0,0,0);
+      if(current.getHours()>=18)shiftStart.setDate(shiftStart.getDate()+1);
+    }else{
+      shiftStart.setHours(18,0,0,0);
+      if(current.getHours()<6)shiftStart.setDate(shiftStart.getDate()-1);
+    }
+    return {team,key:dateKey(shiftStart.getFullYear(),shiftStart.getMonth(),shiftStart.getDate()),half:config.half,shiftStart,roles:{circulator:config.circulator,tech1:config.tech1,tech2:config.tech2}};
+  }
+  function caseTeamAssignment(schedule,team,now){
+    const slot=caseTeamSlot(team,now);if(!slot)return null;
+    const day=schedule?.days?.[slot.key];
+    const peopleFor=field=>day?.[slot.roles[field]]?.[slot.half]||[];
+    const people={circulator:peopleFor("circulator"),tech1:peopleFor("tech1"),tech2:peopleFor("tech2")};
+    return {...slot,found:!!day,people,selected:{circulator:people.circulator[0]||null,tech1:people.tech1[0]||null,tech2:people.tech2[0]||null}};
+  }
 
   function parseWorkbook(arrayBuffer,unzipSync){
     if(typeof unzipSync!=="function")throw new Error("Excel decompression support is unavailable.");
@@ -182,5 +208,5 @@
     };
   }
 
-  return {parseWorkbook,shortName,splitCodes,splitPrimaryCirculator,samePeople,operationalStart,timelineFor,ROLE_KEYS,ADMIN_NAMES,CUSTOM_NAMES};
+  return {parseWorkbook,shortName,splitCodes,splitPrimaryCirculator,samePeople,operationalStart,timelineFor,caseTeamSlot,caseTeamAssignment,ROLE_KEYS,CASE_TEAM_ROLES,ADMIN_NAMES,CUSTOM_NAMES};
 });
