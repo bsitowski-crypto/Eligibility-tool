@@ -41,7 +41,7 @@
     if(t==="DONOR BOARD"||t.includes("NEW DONOR")||t==="ARCHIVE")return"cases";
     if(t==="HOSPITALS"||t==="FUNERAL HOMES"||t==="MEDICAL EXAMINERS"||t==="STAFF"||t==="TRANSPORT")return"directories";
     if(t==="GRAFT CRITERIA"||t==="OPEN GRAFT CRITERIA"||t==="ACTIVITY")return"tools";
-    if(t==="ADMIN"||t==="MASTER DATA"||t==="EXPORT APP DATA"||t==="IMPORT APP DATA"||t==="SIGN OUT")return"admin";
+    if(t==="ADMIN"||t==="STAFFING SCHEDULE"||t==="MASTER DATA"||t==="EXPORT APP DATA"||t==="IMPORT APP DATA"||t==="SIGN OUT")return"admin";
     return"tools";
   }
 
@@ -75,7 +75,7 @@
   }
 
   function reorder(){
-    const order={cases:["DONOR BOARD","+ NEW DONOR","NEW DONOR","ARCHIVE"],directories:["HOSPITALS","FUNERAL HOMES","MEDICAL EXAMINERS","STAFF","TRANSPORT"],tools:["GRAFT CRITERIA","ACTIVITY"],admin:["ADMIN","MASTER DATA","EXPORT APP DATA","IMPORT APP DATA","SIGN OUT"]};
+    const order={cases:["DONOR BOARD","+ NEW DONOR","NEW DONOR","ARCHIVE"],directories:["HOSPITALS","FUNERAL HOMES","MEDICAL EXAMINERS","STAFF","TRANSPORT"],tools:["GRAFT CRITERIA","ACTIVITY"],admin:["ADMIN","STAFFING SCHEDULE","MASTER DATA","EXPORT APP DATA","IMPORT APP DATA","SIGN OUT"]};
     for(const [key,names] of Object.entries(order)){
       const host=groups[key];if(!host)continue;
       const items=[...host.querySelectorAll(":scope > button,:scope > a")];
