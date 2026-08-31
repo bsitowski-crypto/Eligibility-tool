@@ -57,7 +57,7 @@
   }
 
   function eligibleControl(el,head){
-    if(!el||el===menuButton||el.closest("#solvitaMenuPanel")||!head.contains(el)||el.id==="solvitaMenuButton")return false;
+    if(!el||el===menuButton||el.closest("#solvitaMenuPanel")||!head.contains(el)||el.id==="solvitaMenuButton"||el.id==="plannerToolsButton")return false;
     const text=(el.textContent||"").trim();return !!(text||el.getAttribute("aria-label"));
   }
 
