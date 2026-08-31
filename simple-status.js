@@ -22,7 +22,7 @@
   function formatDeadline(value){
     if(!validDate(value))return"Not entered";
     const day=value.toLocaleDateString([], {weekday:"short",month:"numeric",day:"numeric"});
-    const time=value.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    const time=String(value.getHours()).padStart(2,"0")+String(value.getMinutes()).padStart(2,"0");
     return day+" · "+time;
   }
   function compactDuration(ms){
@@ -38,9 +38,9 @@
     const difference=value.getTime()-(now||Date.now());
     return difference>=0?"in "+compactDuration(difference):"passed "+compactDuration(difference)+" ago";
   }
-  function timingCell(label,value,kind){
-    const stamp=validDate(value)?value.toISOString():"";
-    return `<div class="priority-time ${kind}"><div class="priority-time-label">${label}</div><div class="priority-time-value">${esc(formatDeadline(value))}</div><div class="priority-time-relative"${stamp?` data-deadline="${esc(stamp)}"`:""}>${esc(relativeDeadline(value))}</div></div>`;
+  function timingBox(t){
+    const stamp=validDate(t?.timeout)?t.timeout.toISOString():"";
+    return `<div class="priority-time timeout"><div class="priority-time-label">TIME OUT</div><div class="priority-time-value">${esc(formatDeadline(t?.timeout))}</div><div class="priority-start-secondary"><span>Suggested start by:</span> <span class="priority-start-value">${esc(formatDeadline(t?.start))}</span></div><div class="priority-time-relative"${stamp?` data-deadline="${esc(stamp)}"`:""}>${esc(relativeDeadline(t?.timeout))}</div></div>`;
   }
   function refreshDeadlineLabels(){
     const now=Date.now();
@@ -51,7 +51,7 @@
   function cardHtml(d){
     const team=teamText(d),notes=(d.status==="pending"?d.medicalNotes:d.caseNotes)||"",t=timingFor(d);
     const pendingInfo=d.status==="pending"?`<div class="kv"><strong>Authorization:</strong> ${d.authorizationComplete?"Complete":"Pending"} · <strong>Records:</strong> ${d.medicalRecordsReviewed?"Reviewed":"Pending"}</div>`:`<div class="kv"><strong>Recovery:</strong> ${esc(recPreview(d))}</div>`;
-    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${timingCell("SUGGESTED START BY",t?.start,"start")}${timingCell("TIME OUT",t?.timeout,"timeout")}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
+    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
   }
   function renderSimpleBoard(){
     const b=document.getElementById("board");if(!b)return;
@@ -94,12 +94,13 @@
       .priority-card{display:grid;grid-template-columns:minmax(130px,.55fr) minmax(280px,1.25fr) minmax(215px,.95fr) minmax(175px,.75fr) minmax(125px,.52fr);grid-template-areas:"identity timing details transport actions";column-gap:12px;align-items:center;padding:11px 13px}
       .priority-identity{grid-area:identity;display:flex;flex-direction:column;justify-content:center;padding-right:11px;border-right:1px solid #e2e2e7;min-width:0}
       .priority-identity .pill{align-self:flex-start;margin-bottom:0}
-      .priority-timing{grid-area:timing;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;align-self:center}
+      .priority-timing{grid-area:timing;min-width:0;align-self:center}
       .priority-time{border:1px solid #dfe3e8;border-radius:10px;padding:7px 8px;min-width:0}
-      .priority-time.start{background:#fff8e9;border-color:#efd9a7}
       .priority-time.timeout{background:#fff0f1;border-color:#edc4c8}
       .priority-time-label{font-size:10px;line-height:1.15;color:#5f6670;font-weight:850;letter-spacing:.025em}
-      .priority-time-value{margin-top:3px;color:#071f3e;font-size:15px;line-height:1.2;font-weight:900}
+      .priority-time-value{margin-top:3px;color:#071f3e;font-size:18px;line-height:1.2;font-weight:900;font-variant-numeric:tabular-nums}
+      .priority-start-secondary{margin-top:4px;color:#515b68;font-size:12px;line-height:1.35;font-weight:500;overflow-wrap:anywhere}
+      .priority-start-value{font-weight:650;font-variant-numeric:tabular-nums}
       .priority-time-relative{margin-top:3px;color:#626874;font-size:11px;font-weight:750}
       .priority-details{grid-area:details;align-self:center;min-width:0}
       .priority-details .note{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:6px;padding:6px}
@@ -112,7 +113,7 @@
         .priority-identity{display:block;padding:0 0 9px;border-right:0;border-bottom:1px solid #e2e2e7}
         .priority-identity .pill{margin-bottom:0}
         .priority-time{padding:10px}
-        .priority-time-value{font-size:16px}
+        .priority-time-value{font-size:20px}
         .priority-details{align-self:start}
         .priority-details .note{display:block;overflow:visible;margin-top:8px;padding:8px}
         .priority-card>.transport-card-safe{align-self:stretch;margin-top:0;padding:9px 10px}
@@ -120,7 +121,6 @@
         .priority-card>.actions{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
         .priority-card>.actions button{padding:9px}
       }
-      @media(max-width:360px){.priority-timing{grid-template-columns:minmax(0,1fr)}}
     `;document.head.appendChild(style);
     document.addEventListener("click",e=>{const s=e.target.closest?.("[data-simple-status][data-donor-id]");if(s){e.preventDefault();setStatus(s.dataset.donorId,s.dataset.simpleStatus);return}const a=e.target.closest?.("[data-simple-archive]");if(a){e.preventDefault();archive(a.dataset.simpleArchive)}},false);
     const status=document.getElementById("status");status.addEventListener("change",()=>{let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;d.status=status.value==="pending"?"pending":"active";persist();replaceUpdateStatus();});

@@ -9,7 +9,7 @@
     style.id="solvitaCompactMenuStyle";
     style.textContent=`
 #solvitaMenuButton{color:#fff;background:transparent;border:1px solid #ffffff66;border-radius:9px;padding:9px 12px;font-weight:800;min-height:40px;white-space:nowrap}
-#solvitaMenuPanel{position:fixed;z-index:2000;top:72px;right:12px;width:min(330px,calc(100vw - 24px));max-height:calc(100vh - 92px);overflow:auto;background:#fff;border-radius:16px;padding:8px;box-sizing:border-box;box-shadow:0 16px 45px #0007;border:1px solid #d7d7dc}
+#solvitaMenuPanel{position:fixed;z-index:2000;width:min(330px,calc(100vw - 16px));overflow:auto;background:#fff;border-radius:16px;padding:8px;box-sizing:border-box;box-shadow:0 16px 45px #0007;border:1px solid #d7d7dc}
 #solvitaMenuPanel.hidden{display:none!important}
 .menu-section{padding:3px 0 8px}.menu-section+.menu-section{border-top:1px solid #e5e9ef;padding-top:10px}.menu-section-title{padding:5px 12px 6px;color:#7a8390;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 #solvitaMenuPanel button,#solvitaMenuPanel a{width:100%!important;display:block;text-align:left!important;box-sizing:border-box;margin:0!important;padding:11px 13px!important;border:0!important;border-radius:9px!important;background:#fff!important;color:#071f3e!important;font:inherit!important;font-weight:760!important;min-height:42px;text-decoration:none!important}
@@ -18,13 +18,28 @@
 #solvitaMenuPanel #cloudAdminBtn,#solvitaMenuPanel #collabMasterBtn{color:#5b2a86!important}
 .menu-admin-details{border-top:1px solid #e5e9ef;margin-top:2px;padding-top:4px}.menu-admin-details>summary{list-style:none;cursor:pointer;padding:12px 13px;border-radius:9px;color:#5b2a86;font-weight:850}.menu-admin-details>summary::-webkit-details-marker{display:none}.menu-admin-details>summary::after{content:"▾";float:right;color:#7a8390}.menu-admin-details[open]>summary::after{content:"▴"}.menu-admin-details>summary:hover{background:#f6f2fb}.menu-admin-body{padding:0 0 3px}.menu-admin-body button,.menu-admin-body a{padding-left:20px!important}.menu-admin-body #cloudSignOutBtn{margin-top:5px!important;border-top:1px solid #ececf0!important;border-radius:0!important;padding-top:13px!important}
 .menu-source-hidden{display:none!important}
-@media(max-width:600px){#solvitaMenuPanel{top:64px;right:8px;width:calc(100vw - 16px)}}`;
+`;
     document.head.appendChild(style);
   }
 
   function findHeader(){return document.querySelector("header .head")||document.querySelector("header")}
+  function positionDropdown(button,panel){
+    const margin=8,gap=6,rect=button.getBoundingClientRect();
+    const viewport=window.visualViewport;
+    const leftEdge=viewport?.offsetLeft||0,topEdge=viewport?.offsetTop||0;
+    const width=viewport?.width||document.documentElement.clientWidth||window.innerWidth;
+    const height=viewport?.height||window.innerHeight;
+    panel.style.maxWidth=`${Math.max(0,width-margin*2)}px`;
+    const panelWidth=panel.getBoundingClientRect().width;
+    const left=Math.max(leftEdge+margin,Math.min(rect.left,leftEdge+width-panelWidth-margin));
+    const top=Math.max(topEdge+margin,rect.bottom+gap);
+    panel.style.left=`${left}px`;panel.style.right="auto";panel.style.top=`${top}px`;
+    panel.style.maxHeight=`${Math.max(0,topEdge+height-top-margin)}px`;
+  }
+  window.positionPlannerDropdown=positionDropdown;
+  function positionMenu(){if(menuPanel&&!menuPanel.classList.contains("hidden"))positionDropdown(menuButton,menuPanel)}
   function closeMenu(){if(menuPanel)menuPanel.classList.add("hidden");if(menuButton)menuButton.setAttribute("aria-expanded","false")}
-  function toggleMenu(){if(!menuPanel)return;const opening=menuPanel.classList.contains("hidden");menuPanel.classList.toggle("hidden",!opening);menuButton.setAttribute("aria-expanded",opening?"true":"false")}
+  function toggleMenu(){if(!menuPanel)return;const opening=menuPanel.classList.contains("hidden");menuPanel.classList.toggle("hidden",!opening);menuButton.setAttribute("aria-expanded",opening?"true":"false");if(opening){const tools=document.getElementById("plannerToolsPanel");if(tools)tools.hidden=true;document.getElementById("plannerToolsButton")?.setAttribute("aria-expanded","false");positionMenu()}}
   function normalizedText(el){return String(el?.textContent||el?.getAttribute?.("aria-label")||"").trim().toUpperCase().replace(/\s+/g," ")}
 
   function buildSections(){
@@ -97,6 +112,8 @@
     menuPanel.addEventListener("click",e=>{if(e.target.closest("button,a"))setTimeout(closeMenu,0)});
     document.addEventListener("click",e=>{if(menuPanel&&!menuPanel.classList.contains("hidden")&&!menuPanel.contains(e.target)&&e.target!==menuButton)closeMenu()});
     document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
+    window.addEventListener("resize",positionMenu);window.addEventListener("scroll",positionMenu,{passive:true});
+    window.visualViewport?.addEventListener("resize",positionMenu);window.visualViewport?.addEventListener("scroll",positionMenu);
     moveHeaderControls();observer=new MutationObserver(()=>moveHeaderControls());observer.observe(head,{childList:true,subtree:true});bodyObserver=new MutationObserver(()=>moveSpecialDashboardControls());bodyObserver.observe(document.body,{childList:true,subtree:true});setTimeout(moveHeaderControls,500);setTimeout(moveHeaderControls,1500);return true;
   }
   const timer=setInterval(()=>{if(install())clearInterval(timer)},150);setTimeout(()=>clearInterval(timer),15000);

@@ -30,10 +30,41 @@ test("return crossing midnight and equal times",()=>{
   const r=run("2100","2200","0600",[{out:"2300",in:"0100"},{out:"0300",in:"0300"}]);
   assert.equal(r.deathToPrep,540);assert.equal(r.totalOut,180);assert.deepEqual(r.intervals.map(x=>x.minutes),[120,0]);
 });
-test("missing and invalid times withhold totals and threshold conclusions",()=>{
+test("missing and invalid times do not claim a complete calculation",()=>{
   for(const data of [{death:"",initial:"0800",prep:"0900"},{death:"0600",initial:"2400",prep:"0900"},{death:"0600",initial:"0800",prep:""},{death:"0600",initial:"0800",prep:"1200",intervals:[{out:"0900",in:""}]}]){
-    const r=calculate(data);assert.equal(r.valid,false);assert.equal(r.totalOut,null);assert.deepEqual(r.alerts,[]);assert.ok(r.errors.length);
+    const r=calculate(data);assert.equal(r.valid,false);assert.equal(r.totalIsPartial,true);assert.equal(r.deathToPrep,null);assert.deepEqual(r.alerts,[]);assert.ok(r.errors.length);
   }
+});
+test("three blank default intervals are optional",()=>{
+  const r=run("0600","0800","1200",[{out:"",in:""},{out:"",in:""},{out:"",in:""}]);
+  assert.equal(r.valid,true);assert.equal(r.totalOut,120);assert.equal(r.intervals.length,3);assert.ok(r.intervals.every(row=>!row.used&&row.minutes===null));
+});
+test("initial delay and completed intervals calculate before prep",()=>{
+  const r=run("0600","0800","",[{out:"0900",in:"1030"},{out:"",in:""},{out:"",in:""}]);
+  assert.equal(r.initialDelay,120);assert.equal(r.intervals[0].minutes,90);assert.equal(r.totalOut,210);assert.equal(r.deathToPrep,null);assert.equal(r.totalIsPartial,true);
+});
+test("independent interval duration works before death and initial entries",()=>{
+  const r=run("","","",[{out:"2300",in:"0130"}]);assert.equal(r.intervals[0].minutes,150);assert.equal(r.totalOut,150);assert.equal(r.initialDelay,null);assert.equal(r.totalIsPartial,true);
+});
+test("partial or invalid rows don't suppress known intervals or count as zero",()=>{
+  const rows=[{out:"0900",in:"1000"},{out:"1100",in:""},{out:"1300",in:"1400"}];
+  const r=run("0600","0800","",rows);assert.equal(r.totalOut,240);assert.equal(r.intervals[1].minutes,null);assert.equal(r.totalIsPartial,true);
+  rows[1].in="2560";assert.equal(run("0600","0800","",rows).totalOut,240);
+});
+test("final used interval can end at prep with trailing default blanks",()=>{
+  const rows=[{out:"2300",untilPrep:true},{out:"",in:""},{out:"",in:""}];
+  let r=run("1800","2000","",rows);assert.equal(r.totalOut,120);assert.equal(r.intervals[0].minutes,null);assert.equal(r.finalIndex,0);
+  r=run("1800","2000","0130",rows);assert.equal(r.valid,true);assert.equal(r.intervals[0].minutes,150);assert.equal(r.totalOut,270);
+});
+test("total-out alert fires before prep but late-prep alert waits",()=>{
+  const r=run("0600","1900","",[{out:"2030",in:"2331"}]);assert.equal(r.totalOut,961);assert.deepEqual(r.alerts.map(a=>a.code),["total-out"]);
+});
+test("editing or clearing input immediately replaces obsolete totals",()=>{
+  const data={death:"0600",initial:"0800",prep:"",intervals:[{out:"0900",in:"1000"}]};
+  assert.equal(calculate(data).totalOut,180);data.intervals[0].in="1030";assert.equal(calculate(data).totalOut,210);data.intervals[0].in="";assert.equal(calculate(data).totalOut,120);data.initial="";assert.equal(calculate(data).totalOut,null);
+});
+test("additional intervals beyond the initial three are counted",()=>{
+  const r=run("0600","0700","1800",[{out:"0800",in:"0830"},{out:"0900",in:"0930"},{out:"1000",in:"1030"},{out:"1100",in:"1130"}]);assert.equal(r.totalOut,180);assert.equal(r.intervals.length,4);
 });
 test("only final interval may remain out, ignoring hidden return value",()=>{
   assert.equal(run("0600","0700","1000",[{out:"0800",untilPrep:true},{out:"0900",in:"0930"}]).valid,false);
@@ -51,10 +82,10 @@ test("tool integration includes scripts, offline shell, and header exemption",()
   const fs=require("node:fs"),path=require("node:path");
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8");
   const index=read("index.html"),cache=read("sw.js"),ui=read("planner-tools.js");
-  for(const file of ["cooling-calculator.js","planner-tools.js"]){assert.ok(index.includes(`${file}?v=9172`));assert.ok(cache.includes(`"./${file}"`));}
+  for(const file of ["cooling-calculator.js","planner-tools.js"]){assert.ok(index.includes(`${file}?v=9175`));assert.ok(cache.includes(`"./${file}"`));}
   assert.ok(index.indexOf("cooling-calculator.js")<index.indexOf("planner-tools.js"));
   assert.ok(read("compact-menu.js").includes('el.id==="plannerToolsButton"'));
-  assert.ok(ui.includes('@media(max-width:700px)'));assert.ok(ui.includes('dialog.showModal()'));
+  assert.ok(ui.includes('const DEFAULT_INTERVALS=3'));assert.ok(ui.includes('for(let i=0;i<DEFAULT_INTERVALS;i++)addInterval(false)'));assert.ok(ui.includes('dialog.addEventListener("input",update)'));assert.ok(ui.includes('@media(min-width:701px)'));assert.ok(ui.includes('@media(max-width:700px)'));assert.ok(ui.includes('dialog.showModal()'));
   assert.ok(!ui.includes('type="date"'));assert.ok(!ui.includes('24-hour check'));
   assert.ok(!ui.includes('localStorage'));assert.ok(!ui.includes('fetch('));
 });

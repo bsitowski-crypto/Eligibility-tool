@@ -18,6 +18,20 @@
   // Equal times mean zero elapsed; full-day gaps cannot be inferred.
   function calculate(data){
     const errors=[],intervals=[],timeline=[];
+    const present=value=>String(value??"").trim()!=="";
+    const duration=(from,to)=>{const a=parseTime(from),b=parseTime(to);return a===null||b===null?null:(b-a+1440)%1440;};
+    const rows=Array.isArray(data.intervals)?data.intervals:[];
+    const used=row=>present(row.out)||(!row.untilPrep&&present(row.in))||!!row.untilPrep;
+    const lastUsed=rows.reduce((last,row,i)=>used(row)?i:last,-1);
+    const initialDelay=duration(data.death,data.initial);
+    const finalIndex=rows.findIndex((row,i)=>row.untilPrep&&i===lastUsed);
+    rows.forEach((row,i)=>{
+      const active=used(row);
+      const minutes=!active?null:row.untilPrep?(i===lastUsed?duration(row.out,data.prep):null):duration(row.out,row.in);
+      intervals.push({minutes,untilPrep:!!row.untilPrep,used:active});
+    });
+    const known=[initialDelay,...intervals.map(row=>row.minutes)].filter(value=>value!==null);
+    const totalOut=known.length?known.reduce((sum,n)=>sum+n,0):null;
     let previous=null;
     function record(value,key,label){
       const clock=parseTime(value);
@@ -28,27 +42,22 @@
     }
     const death=record(data.death,"death","Time of death");
     const initial=record(data.initial,"initial","Initial cooling time");
-    const rows=Array.isArray(data.intervals)?data.intervals:[];
-    let finalOut=null;
     rows.forEach((row,i)=>{
-      const out=record(row.out,`out-${i}`,`Interval ${i+1} removal time`);
+      if(!used(row))return;
+      record(row.out,`out-${i}`,`Interval ${i+1} removal time`);
       if(row.untilPrep){
-        if(i!==rows.length-1)errors.push({key:`out-${i}`,message:"Only the final interval can remain out until prep."});
-        finalOut=out;intervals.push({minutes:null,untilPrep:true});
+        if(i!==lastUsed)errors.push({key:`out-${i}`,message:"Only the final used interval can remain out until prep."});
       }else{
-        const back=record(row.in,`in-${i}`,`Interval ${i+1} return time`);
-        intervals.push({minutes:out===null||back===null?null:back-out,untilPrep:false});
+        record(row.in,`in-${i}`,`Interval ${i+1} return time`);
       }
     });
     const prep=record(data.prep,"prep","Prep time");
-    if(errors.length)return {valid:false,errors,intervals:[],initialDelay:null,deathToPrep:null,totalOut:null,alerts:[],timeline:[]};
-    if(rows.length&&rows[rows.length-1].untilPrep)intervals[intervals.length-1].minutes=prep-finalOut;
-    const initialDelay=initial-death,deathToPrep=prep-death;
-    const totalOut=initialDelay+intervals.reduce((sum,row)=>sum+row.minutes,0);
+    const valid=errors.length===0;
+    const deathToPrep=valid?prep-death:null;
     const alerts=[];
     if(initialDelay>720&&deathToPrep>900)alerts.push({code:"late-cooling-and-prep",title:"Late cooling AND late prep",detail:`Initial cooling: ${formatDuration(initialDelay)}. Death to prep: ${formatDuration(deathToPrep)}. Both the 12-hour and 15-hour limits are exceeded.`});
     if(totalOut>900)alerts.push({code:"total-out",title:"Total out of cooling exceeds 15 hours",detail:`Calculated: ${formatDuration(totalOut)}.`});
-    return {valid:true,errors,intervals,initialDelay,deathToPrep,totalOut,alerts,timeline};
+    return {valid,errors,intervals,initialDelay,deathToPrep,totalOut,alerts,timeline:valid?timeline:[],totalIsPartial:!valid,finalIndex};
   }
   return {parseTime,formatDuration,calculate};
 });
