@@ -12,7 +12,7 @@
   const ADMIN_EMAIL="bsitowski@gmail.com";
 
   let cloudAuth=null,cloudDb=null,cloudUnsub=null,cloudApprovalUnsub=null,cloudReady=false,cloudApplying=false,cloudSyncTimer=null,cloudAccessRevoking=false;
-  let cloudKnown=new Map();
+  let cloudKnown=new Map(),cloudSession=0;
 
   function installCloudUI(){
     const style=document.createElement("style");
@@ -327,6 +327,7 @@
   function donorCloudCopy(d){return JSON.parse(JSON.stringify(d))}
   function donorJson(d){try{return JSON.stringify(donorCloudCopy(d))}catch{return ""}}
   function stopCloudListeners(){
+    cloudSession++;
     if(cloudUnsub){cloudUnsub();cloudUnsub=null}
     if(cloudApprovalUnsub){cloudApprovalUnsub();cloudApprovalUnsub=null}
     clearTimeout(cloudSyncTimer);cloudSyncTimer=null;
@@ -341,10 +342,14 @@
   function watchCloudApproval(user){
     if(cloudApprovalUnsub){cloudApprovalUnsub();cloudApprovalUnsub=null}
     if(isAdminUser(user))return;
+    const session=cloudSession;
     cloudApprovalUnsub=cloudDb.collection("approvedUsers").doc(user.uid).onSnapshot(doc=>{
+      if(session!==cloudSession)return;
       const data=doc.exists?(doc.data()||{}):null;
       if(!data||data.approved!==true)endRevokedSession();
+      else if(data.mustResetPassword===true)endRevokedSession("Your password must be changed. Please sign in again.");
     },err=>{
+      if(session!==cloudSession)return;
       if(String(err&&err.code||"").includes("permission-denied"))endRevokedSession();
       else console.error("Approval listener error",err);
     });
@@ -369,30 +374,41 @@
   }
   async function startCloudDonorSync(user){
     stopCloudListeners();cloudReady=false;cloudKnown.clear();cloudStatusText("CLOUD: CONNECTING");
+    const session=cloudSession;
+    const current=()=>session===cloudSession&&cloudAuth.currentUser?.uid===user.uid;
     try{
-      const localBefore=cloneData(donors);const snap=await cloudDb.collection("donors").get();const remote=new Map();snap.forEach(doc=>remote.set(doc.id,{...doc.data(),id:doc.id}));
-      for(const d of localBefore)if(!remote.has(d.id))await cloudDb.collection("donors").doc(d.id).set(donorCloudCopy(d));
-      const refreshed=await cloudDb.collection("donors").get();donors=[];cloudKnown.clear();refreshed.forEach(doc=>{const d={...doc.data(),id:doc.id};donors.push(d);cloudKnown.set(d.id,donorJson(d))});
+      // Sign-in is a read, not a migration. A missing server record may have
+      // been deliberately deleted; never recreate it from browser storage.
+      const refreshed=await cloudDb.collection("donors").get({source:"server"});
+      if(!current())return;
+      donors=[];cloudKnown.clear();refreshed.forEach(doc=>{const d={...doc.data(),id:doc.id};donors.push(d);cloudKnown.set(d.id,donorJson(d))});
       localStorage.setItem(APPKEY,JSON.stringify(donors));cloudReady=true;cloudStatusText("CLOUD: SYNCED","ok");document.getElementById("cloudAuthGate").classList.add("hidden");
       const out=document.getElementById("cloudSignOutBtn");if(out)out.style.display="inline-block";const ab=document.getElementById("cloudAdminBtn");if(ab)ab.style.display=isAdminUser(user)?"inline-block":"none";
-      renderBoard();watchCloudApproval(user);cloudUnsub=cloudDb.collection("donors").onSnapshot(applyCloudSnapshot,err=>{
+      renderBoard();watchCloudApproval(user);cloudUnsub=cloudDb.collection("donors").onSnapshot(snap=>{if(current())applyCloudSnapshot(snap)},err=>{
+        if(!current())return;
         console.error("Cloud listener error",err);
         if(String(err&&err.code||"").includes("permission-denied")&&!isAdminUser(user))endRevokedSession();
         else cloudStatusText("CLOUD: CONNECTION ERROR","bad");
       });
     }catch(err){
+      if(!current())return;
       stopCloudListeners();console.error("Cloud startup failed",err);cloudStatusText("CLOUD: ERROR","bad");const box=document.getElementById("cloudAuthError");box.textContent="Signed in, but the shared donor database could not be opened: "+cloudErrorMessage(err);box.style.display="block";document.getElementById("cloudAuthGate").classList.remove("hidden");
     }
   }
   async function handleAuthenticatedUser(user){
+    stopCloudListeners();cloudReady=false;
+    const session=cloudSession;
     cloudAccessRevoking=false;
     document.getElementById("cloudEmail").value=user.email||"";document.getElementById("cloudAuthError").style.display="none";document.getElementById("cloudAuthSuccess").style.display="none";
     try{
-      if(await requiresTemporaryPasswordChange(user)){
+      const mustChange=await requiresTemporaryPasswordChange(user);
+      if(session!==cloudSession||cloudAuth.currentUser?.uid!==user.uid)return;
+      if(mustChange){
         cloudReady=false;cloudStatusText("PASSWORD CHANGE REQUIRED");document.getElementById("cloudAuthGate").classList.add("hidden");document.getElementById("cloudPasswordModal").classList.remove("hidden");return;
       }
       document.getElementById("cloudPasswordModal").classList.add("hidden");await startCloudDonorSync(user);
     }catch(err){
+      if(session!==cloudSession||cloudAuth.currentUser?.uid!==user.uid)return;
       cloudStatusText("CLOUD: ERROR","bad");showAuthMessage(cloudErrorMessage(err),true);document.getElementById("cloudAuthGate").classList.remove("hidden");
     }
   }
