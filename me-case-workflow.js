@@ -425,7 +425,7 @@
           </div>
 
           <div class="row" style="margin-top:10px">
-            <div class="fg"><label for="meStickerComplete">Has the ME sticker been completed?</label><select id="meStickerComplete">${yesNoOptions()}</select></div>
+            <div class="fg"><label for="meStickerComplete">Has the ME sticker been completed?</label><select id="meStickerComplete" aria-describedby="meStickerHelp">${yesNoOptions()}</select><div id="meStickerHelp" class="small">Required for pre-autopsy recovery; optional otherwise.</div></div>
           </div>
         </div>
 
@@ -672,7 +672,7 @@
     if(!data.documentation.mdiLog&&!data.documentation.iTransplant&&!data.documentation.phone){
       errors.push("Select where the ME information is documented: MDI log, iTransplant, or phone.");
     }
-    if(data.stickerComplete!=="yes")errors.push("Complete the ME sticker before validation.");
+    if(autopsyStatus==="before"&&data.stickerComplete!=="yes")errors.push("Complete the ME sticker before validating a pre-autopsy recovery.");
 
     if(autopsyStatus==="before"){
       if(data.preAutopsy.pickupConfirmed!=="yes")errors.push("Confirm the pre-autopsy pickup location with the investigator.");
@@ -683,8 +683,8 @@
       if(data.postAutopsy.readyConfirmed!=="yes")errors.push("Confirm with SMEO that the decedent is ready for pickup.");
       if(!data.postAutopsy.confirmationContact)errors.push("Enter the SMEO confirmation contact.");
       if(!data.postAutopsy.confirmationDateTime)errors.push("Enter the SMEO confirmation date and time.");
-    }else{
-      errors.push("For a cleared County or State ME case, select Recovery Before Autopsy or Recovery After Autopsy.");
+    }else if(autopsyStatus!=="external_only"){
+      errors.push("For a cleared County or State ME case, select Recovery Before Autopsy, Recovery After Autopsy, or External only.");
     }
     return errors;
   }
@@ -784,7 +784,7 @@
       if(data.documentation.iTransplant)sources.push("iTransplant");
       if(data.documentation.phone)sources.push("Phone");
       rows.push("ME documentation: "+sources.join(" + "));
-      rows.push("ME sticker: "+(data.stickerComplete==="yes"?"Complete":"Incomplete"));
+      rows.push("ME sticker: "+(data.stickerComplete==="yes"?"Complete":autopsyStatus==="before"?"Incomplete":"Optional — "+(data.stickerComplete==="no"?"not completed":"not recorded")));
       if(autopsyStatus==="before"){
         rows.push("Pre-autopsy pickup: Confirmed with investigator");
         rows.push("SMEO drop-off: "+data.preAutopsy.dropoffDateTime);
