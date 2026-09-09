@@ -31,3 +31,12 @@ test("sort remains earliest timeout first, unknown last",()=>{
 test("timeout typography outweighs secondary start on desktop and phone",()=>{
   assert.match(source,/priority-time-value\{[^}]*font-size:18px/);assert.match(source,/priority-start-secondary\{[^}]*font-size:12px/);assert.match(source,/priority-time-value\{font-size:20px/);
 });
+test('home cards show full escaped case notes for pending and active donors',()=>{
+  for(const status of ['pending','active']){
+    const notes='Long note '.repeat(40)+'<script>bad</script>',h=harness([{id:'one',status,caseNotes:notes}]);
+    h.renderSimpleBoard();assert.ok(h.board.innerHTML.includes('Long note '.repeat(40)));
+    assert.ok(h.board.innerHTML.includes('&lt;script&gt;bad&lt;/script&gt;'));
+    assert.ok(h.board.innerHTML.includes('data-edit-notes="one"'));
+    assert.ok(h.board.innerHTML.includes('CASE NOTES'));
+  }
+});

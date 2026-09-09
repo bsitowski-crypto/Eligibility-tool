@@ -9,10 +9,10 @@ function harness(){
   let response=Promise.resolve(snapshot([]));
   const auth={currentUser:{uid:'admin',email:'bsitowski@gmail.com'}};
   const db={collection(){return {get(options){reads.push(options);return response;},doc(){return {set(data){writes.push(data);}};},onSnapshot(cb,error){listeners.push({cb,error});return ()=>{};}};}};
-  const context={document,window:{},donors:[{id:'deleted',name:'Synthetic cached case'}],APPKEY:'donors',localStorage:{setItem(k,v){storage.set(k,v);}},renderBoard(){},save(){},init(){},clearTimeout(){},setTimeout(){},console:{error(){},warn(){}}};
+  const context={document,window:{},navigator:{onLine:true},donors:[{id:'deleted',name:'Synthetic cached case'}],APPKEY:'donors',localStorage:{setItem(k,v){storage.set(k,v);}},renderBoard(){},save(){},init(){},clearTimeout(){},setTimeout(){},console:{error(){},warn(){}}};
   const source=fs.readFileSync(require.resolve('../cloud-sync.js'),'utf8').replace('  const originalSave=save;',`  window.testSync={startCloudDonorSync,stopCloudListeners,handleAuthenticatedUser,setup(a,d){cloudAuth=a;cloudDb=d;},state(){return {ready:cloudReady,donors};}};\n  const originalSave=save;`);
   vm.runInNewContext(source,context);const api=context.window.testSync;api.setup(auth,db);
-  return {api,auth,writes,reads,listeners,storage,context,respond(p){response=p;}};
+  return {api,auth,db,writes,reads,listeners,storage,context,respond(p){response=p;}};
 }
 test('sign-in never resurrects cached donors missing from the server',async()=>{
   const h=harness();await h.api.startCloudDonorSync(h.auth.currentUser);
@@ -39,4 +39,21 @@ test('late donor snapshots from an old session cannot replace current data',asyn
   h.respond(Promise.resolve(snapshot([{id:'new'}])));await h.api.startCloudDonorSync(h.auth.currentUser);
   old.cb(snapshot([{id:'old'}]));old.error({code:'permission-denied'});
   assert.equal(h.api.state().donors[0].id,'new');assert.equal(h.api.state().ready,true);
+});
+test('home notes transaction changes only notes and preserves other donor fields',async()=>{
+  const h=harness(),record={id:'one',caseNotes:'Original',age:52,caseTeam:'B Team'};
+  h.respond(Promise.resolve(snapshot([record])));await h.api.startCloudDonorSync(h.auth.currentUser);
+  h.db.runTransaction=fn=>fn({get:async()=>({exists:true,data:()=>record}),update:(ref,patch)=>h.writes.push(patch)});
+  await h.context.window.cloudSaveCaseNotes('one','Original','Edited');
+  assert.deepEqual(Object.keys(h.writes[0]),['caseNotes']);assert.equal(h.writes[0].caseNotes,'Edited');
+  assert.equal(h.api.state().donors[0].age,52);assert.equal(h.api.state().donors[0].caseTeam,'B Team');
+});
+test('home notes reject conflicting edits, missing donors and offline saves',async()=>{
+  const h=harness();await h.api.startCloudDonorSync(h.auth.currentUser);
+  h.db.runTransaction=fn=>fn({get:async()=>({exists:true,data:()=>({caseNotes:'Changed by coworker'})}),update:()=>h.writes.push('bad')});
+  await assert.rejects(h.context.window.cloudSaveCaseNotes('one','Original','Mine'),/Someone changed/);
+  h.db.runTransaction=fn=>fn({get:async()=>({exists:false}),update:()=>h.writes.push('bad')});
+  await assert.rejects(h.context.window.cloudSaveCaseNotes('one','','Mine'),/no longer/);
+  h.context.navigator.onLine=false;await assert.rejects(h.context.window.cloudSaveCaseNotes('one','','Mine'),/Connect/);
+  assert.equal(h.writes.length,0);
 });

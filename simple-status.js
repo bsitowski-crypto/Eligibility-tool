@@ -1,6 +1,31 @@
 (function(){
   "use strict";
   let installed=false;
+  const noteDrafts=new Map();
+  function noteOwner(){try{return window.firebase?.auth().currentUser?.uid||""}catch{return ""}}
+  function notesHtml(d){
+    const draft=noteDrafts.get(d.id),editing=draft&&draft.owner===noteOwner(),notes=String(d.caseNotes||"");
+    return `<section class="priority-notes" data-notes-id="${esc(d.id)}"><div class="priority-notes-head"><strong>CASE NOTES</strong>${editing?"":`<button type="button" data-edit-notes="${esc(d.id)}">${notes?"Edit":"Add"} notes</button>`}</div>${editing?`<textarea aria-label="Case notes" data-note-input="${esc(d.id)}" ${draft.busy?"disabled":""}>${esc(draft.text)}</textarea><div class="priority-notes-buttons"><button type="button" data-cancel-notes="${esc(d.id)}" ${draft.busy?"disabled":""}>Cancel</button><button type="button" class="primary" data-save-notes="${esc(d.id)}" ${draft.busy?"disabled":""}>${draft.busy?"Saving…":"Save notes"}</button></div><div role="status">${esc(draft.error||"")}</div>`:`<div class="priority-note-text">${notes?esc(notes):"No case notes yet."}</div>`}</section>`;
+  }
+  async function noteAction(event){
+    const button=event.target.closest?.('[data-edit-notes],[data-cancel-notes],[data-save-notes]');if(!button)return;
+    event.preventDefault();event.stopPropagation();
+    const id=button.dataset.editNotes||button.dataset.cancelNotes||button.dataset.saveNotes;
+    const donor=allDonors().find(d=>d.id===id);if(!donor)return;
+    if(button.dataset.editNotes){noteDrafts.set(id,{owner:noteOwner(),expected:String(donor.caseNotes||""),text:String(donor.caseNotes||""),busy:false});}
+    else if(button.dataset.cancelNotes){noteDrafts.delete(id);}
+    else{
+      const draft=noteDrafts.get(id);if(!draft||draft.busy||draft.owner!==noteOwner())return;
+      draft.busy=true;draft.error="";renderSimpleBoard();
+      try{
+        if(typeof window.cloudSaveCaseNotes!=="function")throw Error("Shared notes are not connected. Refresh and sign in again.");
+        await window.cloudSaveCaseNotes(id,draft.expected,draft.text);noteDrafts.delete(id);
+      }catch(error){draft.error=error.message||"Notes could not be saved. Please try again.";}
+      finally{draft.busy=false;}
+    }
+    renderSimpleBoard();
+    if(button.dataset.editNotes)document.querySelector(`[data-note-input="${CSS.escape(id)}"]`)?.focus();
+  }
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
   function allDonors(){try{return donors||[]}catch{return[]}}
   function persist(){try{if(typeof save==="function")save()}catch{}}
@@ -49,7 +74,7 @@
     });
   }
   function cardHtml(d){
-    const team=teamText(d),notes=(d.status==="pending"?d.medicalNotes:d.caseNotes)||"",t=timingFor(d);
+    const team=teamText(d),notes=d.status==="pending"?(d.medicalNotes||""):"",t=timingFor(d);
     const pendingInfo=d.status==="pending"?`<div class="kv"><strong>Authorization:</strong> ${d.authorizationComplete?"Complete":"Pending"} · <strong>Records:</strong> ${d.medicalRecordsReviewed?"Reviewed":"Pending"}</div>`:`<div class="kv"><strong>Recovery:</strong> ${esc(recPreview(d))}</div>`;
     return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
   }
@@ -64,7 +89,9 @@
     });
     const pendingCount=rows.filter(d=>d.status==="pending").length;
     const activeCount=rows.filter(d=>d.status==="active").length;
-    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS BY TIME OUT (${rows.length})</div><div class="priority-board-summary">${pendingCount} Pending · ${activeCount} Active · Earliest time out first</div><div class="grid priority-board-grid">${rows.map(cardHtml).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
+    const focused=document.activeElement,noteId=focused?.dataset?.noteInput,selection=noteId?[focused.selectionStart,focused.selectionEnd]:null;
+    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS BY TIME OUT (${rows.length})</div><div class="priority-board-summary">${pendingCount} Pending · ${activeCount} Active · Earliest time out first</div><div class="grid priority-board-grid">${rows.map(d=>cardHtml(d).replace(/<\/div>$/,notesHtml(d)+"</div>")).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
+    if(noteId){const input=[...b.querySelectorAll('[data-note-input]')].find(n=>n.dataset.noteInput===noteId);if(input&&!input.disabled){input.focus();input.setSelectionRange(...selection);}}
     try{if(typeof bindDonorOpenButtons==="function")bindDonorOpenButtons()}catch{}
     refreshDeadlineLabels();
     refreshFilterUI();
@@ -87,11 +114,17 @@
     try{filters.active=filters.active!==false}catch{}
     migrate();simplifySelect();window.renderBoard=renderSimpleBoard;replaceRestore();replaceUpdateStatus();
     const style=document.createElement("style");style.id="simpleStatusStyle";style.textContent=`
+      body>main{max-width:none;padding-left:20px;padding-right:20px}header>.head{max-width:none}
+      .priority-notes{grid-area:notes;border-top:1px solid #dce3eb;background:#f7f9fc;margin-top:12px;padding:14px 2px 4px;min-width:0}
+      .priority-notes-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px;font-size:14px}
+      .priority-note-text{font-size:16px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;min-height:50px}
+      .priority-notes textarea{width:100%;min-height:112px;box-sizing:border-box;font-size:16px;line-height:1.5;resize:vertical}
+      .priority-notes-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}.priority-notes [role=status]{color:#9c2839;font-size:14px}
       .pill.active{background:#2e8b57}.status.active{background:#eef8f2;border-left-color:#2e8b57}.chip.active.on{background:#2e8b57;color:#fff}.donor.active{border-left-color:#2e8b57;background:#fff}
       .priority-board-summary{margin:-4px 0 10px;color:var(--sub);font-size:12px;font-weight:650}
       .priority-board-grid{grid-template-columns:minmax(0,1fr)!important;gap:12px}
       .priority-board-empty{padding:20px;border:1px dashed var(--bd);border-radius:12px;background:#fff;color:var(--sub);text-align:center}
-      .priority-card{display:grid;grid-template-columns:minmax(130px,.55fr) minmax(280px,1.25fr) minmax(215px,.95fr) minmax(175px,.75fr) minmax(125px,.52fr);grid-template-areas:"identity timing details transport actions";column-gap:12px;align-items:center;padding:11px 13px}
+      .priority-card{display:grid;grid-template-columns:minmax(110px,.55fr) minmax(230px,1.25fr) minmax(170px,.95fr) minmax(160px,.75fr) minmax(120px,.52fr);grid-template-areas:"identity timing details transport actions" "notes notes notes notes notes";column-gap:12px;align-items:center;padding:11px 13px}
       .priority-identity{grid-area:identity;display:flex;flex-direction:column;justify-content:center;padding-right:11px;border-right:1px solid #e2e2e7;min-width:0}
       .priority-identity .pill{align-self:flex-start;margin-bottom:0}
       .priority-timing{grid-area:timing;min-width:0;align-self:center}
@@ -109,7 +142,7 @@
       .priority-card>.actions{grid-area:actions;align-self:center;display:flex;flex-direction:column;justify-content:center;gap:5px;margin-top:0}
       .priority-card>.actions button{width:100%;padding:7px 8px}
       @media(max-width:1050px){
-        .priority-card{grid-template-columns:minmax(0,1fr);grid-template-areas:"identity" "timing" "details" "transport" "actions";gap:11px;padding:14px}
+        .priority-card{grid-template-columns:minmax(0,1fr);grid-template-areas:"identity" "timing" "details" "transport" "actions" "notes";gap:11px;padding:14px}
         .priority-identity{display:block;padding:0 0 9px;border-right:0;border-bottom:1px solid #e2e2e7}
         .priority-identity .pill{margin-bottom:0}
         .priority-time{padding:10px}
@@ -121,7 +154,10 @@
         .priority-card>.actions{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
         .priority-card>.actions button{padding:9px}
       }
+      @media(max-width:700px){body>main{padding-left:12px;padding-right:12px}.priority-notes button{min-height:44px}}
     `;document.head.appendChild(style);
+    document.addEventListener("click",noteAction,true);
+    document.addEventListener("input",event=>{const id=event.target.dataset?.noteInput,draft=noteDrafts.get(id);if(draft&&draft.owner===noteOwner())draft.text=event.target.value;});
     document.addEventListener("click",e=>{const s=e.target.closest?.("[data-simple-status][data-donor-id]");if(s){e.preventDefault();setStatus(s.dataset.donorId,s.dataset.simpleStatus);return}const a=e.target.closest?.("[data-simple-archive]");if(a){e.preventDefault();archive(a.dataset.simpleArchive)}},false);
     const status=document.getElementById("status");status.addEventListener("change",()=>{let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;d.status=status.value==="pending"?"pending":"active";persist();replaceUpdateStatus();});
     installed=true;renderSimpleBoard();return true}

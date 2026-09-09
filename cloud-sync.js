@@ -324,6 +324,25 @@
     finally{btn.disabled=false;btn.textContent="APPROVE EXISTING ACCOUNT"}
   }
 
+  async function saveCaseNotes(id,expected,text){
+    if(!cloudReady||!cloudAuth.currentUser||navigator.onLine===false)throw Error("Connect and sign in before saving notes.");
+    const session=cloudSession,uid=cloudAuth.currentUser.uid;
+    const current=()=>session===cloudSession&&cloudReady&&cloudAuth.currentUser?.uid===uid;
+    const ref=cloudDb.collection("donors").doc(id);
+    await cloudDb.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      if(!current())throw Error("Your session changed. Sign in again before saving.");
+      if(!snap.exists)throw Error("This donor is no longer available.");
+      if(String(snap.data().caseNotes||"")!==expected)throw Error("Someone changed these notes. Cancel to see the latest notes, then try again. Your draft is still here.");
+      tx.update(ref,{caseNotes:text});
+    });
+    if(!current())throw Error("Your session changed. Reopen the donor to check the saved notes.");
+    const donor=donors.find(d=>d.id===id);if(donor)donor.caseNotes=text;
+    if(cloudKnown.has(id)){const known=JSON.parse(cloudKnown.get(id));known.caseNotes=text;cloudKnown.set(id,donorJson(known));}
+    localStorage.setItem(APPKEY,JSON.stringify(donors));
+    if(typeof cur==="function"&&cur()?.id===id){const input=document.getElementById("caseNotes");if(input)input.value=text;}
+  }
+  window.cloudSaveCaseNotes=saveCaseNotes;
   function donorCloudCopy(d){return JSON.parse(JSON.stringify(d))}
   function donorJson(d){try{return JSON.stringify(donorCloudCopy(d))}catch{return ""}}
   function stopCloudListeners(){
