@@ -3,11 +3,32 @@ const assert=require('node:assert/strict');
 const {applyNonBoneSupplyRules:apply}=require('../supply-order-fix.js');
 const zones=['anteriorSkin','posteriorSkin','legSkin'];
 const base=[{n:'Gown',q:1},{n:'OR Towels',q:2},{n:'CHG',q:3}];
-test('all non-bone configurations omit gowns and OR towels',()=>{
-  for(const id of ['heartArtivion','heartLeMaitre','nerves','adipose','saphLeMaitre','femVeinArtivion','fascia','pericardium',...zones]){
+test('non-bone configurations without heart omit gowns and OR towels',()=>{
+  for(const id of ['nerves','adipose','saphLeMaitre','femVeinArtivion','fascia','pericardium',...zones]){
     assert.deepEqual(apply(base,[id]),[{n:'CHG',q:3}]);
   }
   assert.equal(base.length,3);
+});
+test('either heart processor without Solvita grafts gets exact setup quantities',()=>{
+  for(const heart of ['heartArtivion','heartLeMaitre']){
+    for(const other of [[],['nerves','adipose','saphLeMaitre']]){
+      const selected=[heart,...other];
+      const result=apply([...base,{n:'U-Drapes',q:7},{n:'Sterile Tray',q:3}],selected);
+      for(const [name,qty] of [['Gown',1],['U-Drapes',2],['Sterile Tray',1]]){
+        assert.deepEqual(result.filter(x=>x.n===name).map(x=>x.q),[qty]);
+      }
+      assert.equal(result.some(x=>x.n==='OR Towels'),false);
+      assert.deepEqual(apply(result,selected),result);
+    }
+  }
+});
+test('Solvita grafts and side-specific bones prevent the heart setup exception',()=>{
+  for(const id of [...zones,'fascia','pericardium','cartilage','femur','achilles']){
+    const result=apply(base,['heartArtivion',id]);
+    assert.equal(result.some(x=>x.n==='U-Drapes'||x.n==='Sterile Tray'),false);
+  }
+  const result=apply(base,{selected:['heartLeMaitre'],sides:['ocaStd_femur_left']});
+  assert.deepEqual(result,base);
 });
 test('bones, tendons and cartilage with sternum retain existing supplies',()=>{
   for(const id of ['femur','achilles','cartilage','freshKnee','hemi']){

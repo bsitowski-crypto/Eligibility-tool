@@ -91,13 +91,22 @@
     const ids=recoveryIds(recovery);
     const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
     const needsSkinBags=!hasBoneOrTendon&&[...SKIN_IDS].every(id=>ids.includes(id));
+    const hasSolvitaGraft=hasBoneOrTendon||ids.some(id=>SKIN_IDS.has(id)||id==="fascia"||id==="pericardium");
+    const needsHeartSetup=!hasSolvitaGraft&&ids.some(id=>HEART_IDS.has(id));
     const output=items.filter(item=>{
       const name=key(item?.n);
       if(!hasBoneOrTendon&&(/^(gown|gowns)( sterile)?$/.test(name)||/^or towels?$/.test(name)))return false;
       if(needsSkinBags&&/^sterile bags?$/.test(name))return false;
+      if(needsHeartSetup&&/^(u drapes?|sterile trays?)$/.test(name))return false;
       return true;
     }).map(item=>Object.assign({},item));
     if(needsSkinBags)output.push({c:"Solvita",n:"Sterile Bags",q:1,note:"1 pack; all three skin zones without bone or tendon recovery"});
+    if(needsHeartSetup){
+      const note="Heart recovery without Solvita grafts";
+      output.push({c:"Supplies",n:"Gown",q:1,note},
+        {c:"Supplies",n:"U-Drapes",q:2,note},
+        {c:"Supplies",n:"Sterile Tray",q:1,note});
+    }
     return output;
   }
 
