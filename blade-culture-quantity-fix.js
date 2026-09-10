@@ -190,6 +190,14 @@
     return totals;
   }
 
+  function cultureSwabCount(recovery){
+    const grafts=recoveredGrafts(recovery);
+    const hasSkin=grafts.some(graft=>SKIN_IDS.has(graft.id));
+    const hasAdipose=grafts.some(graft=>graft.id==="adipose");
+    const hasBoneOrTendon=grafts.some(graft=>BONE_TENDON_IDS.has(graft.id));
+    return hasSkin&&hasAdipose&&!hasBoneOrTendon?4:0;
+  }
+
   function correctedItems(items,recovery){
     if(!Array.isArray(items))return items;
     const blades=bladeTotals(recovery);
@@ -198,7 +206,8 @@
       .filter(item=>{
         const name=String(item?.n||"").trim().toLowerCase();
         return name!=="scalpel blade"&&name!=="scalpel blades"&&name!=="tsb"&&
-          name!=="thio"&&name!=="thioglycollate";
+          name!=="thio"&&name!=="thioglycollate"&&name!=="culture swab"&&
+          name!=="culture swabs";
       })
       .map(item=>Object.assign({},item));
 
@@ -221,6 +230,13 @@
       const note="Left / Middle / Right; one tube per cultured graft";
       output.push({c:"Culture Tubes",n:"TSB",q:cultures.quantity,note});
       output.push({c:"Culture Tubes",n:"Thio",q:cultures.quantity,note});
+    }
+    const swabs=cultureSwabCount(recovery);
+    if(swabs){
+      output.push({
+        c:"Culture Supplies",n:"Culture Swabs",q:swabs,
+        note:"Skin + adipose; no bone or tendon recovery"
+      });
     }
 
     output.sort((a,b)=>String(a.n||"").localeCompare(String(b.n||"")));
@@ -272,7 +288,7 @@
   }
 
   const api={
-    recoveredGrafts,bladeTotals,cultureTotals,correctedItems,regionsFor
+    recoveredGrafts,bladeTotals,cultureTotals,cultureSwabCount,correctedItems,regionsFor
   };
   root.PDXBladeCultureFix=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;

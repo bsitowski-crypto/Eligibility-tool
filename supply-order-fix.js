@@ -100,6 +100,7 @@
     if(name.includes("full thickness skin")||name.includes("ft skin kit"))return 70;
     if(name.includes("thioglycollate")||name==="thio")return 80;
     if(name.includes("trypticase soy broth")||name==="tsb")return 90;
+    if(name.includes("culture swab"))return 100;
 
     if(name.includes("bone skin recovery")||name.includes("skin bone recovery")||
       name==="skin recovery kit")return 130;
