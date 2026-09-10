@@ -86,6 +86,21 @@
   // Kept for compatibility with any code that used the earlier rule name.
   const applyAdiposeBoneTrayRule=applyBoneTrayRule;
 
+  function applyNonBoneSupplyRules(items,recovery){
+    if(!Array.isArray(items))return items;
+    const ids=recoveryIds(recovery);
+    const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
+    const needsSkinBags=!hasBoneOrTendon&&[...SKIN_IDS].every(id=>ids.includes(id));
+    const output=items.filter(item=>{
+      const name=key(item?.n);
+      if(!hasBoneOrTendon&&(/^(gown|gowns)( sterile)?$/.test(name)||/^or towels?$/.test(name)))return false;
+      if(needsSkinBags&&/^sterile bags?$/.test(name))return false;
+      return true;
+    }).map(item=>Object.assign({},item));
+    if(needsSkinBags)output.push({c:"Solvita",n:"Sterile Bags",q:1,note:"1 pack; all three skin zones without bone or tendon recovery"});
+    return output;
+  }
+
   function rank(item){
     const name=key(item?.n);
     const category=key(item?.c);
@@ -233,7 +248,8 @@
     if(!Array.isArray(items))return [];
     const trayCorrected=applyClampRule?applyBoneTrayRule(items,recovery):items;
     const corrected=applyClampRule?applyCordClampRule(trayCorrected,recovery):trayCorrected;
-    const ordered=orderItems(corrected);
+    const finalItems=applyClampRule?applyNonBoneSupplyRules(corrected,recovery):corrected;
+    const ordered=orderItems(finalItems);
     items.splice(0,items.length,...ordered);
     render(items);
     return items;
@@ -269,7 +285,7 @@
 
   const api={
     key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,
-    applyCordClampRule,applyBoneTrayRule,applyAdiposeBoneTrayRule,cultureQuantity
+    applyCordClampRule,applyBoneTrayRule,applyAdiposeBoneTrayRule,applyNonBoneSupplyRules,cultureQuantity
   };
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
