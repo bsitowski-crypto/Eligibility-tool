@@ -11,7 +11,18 @@ const base=overrides=>({
 test("military time and measurement conversion",()=>{
   assert.equal(calc.parseMilitaryTime("0000"),0);assert.equal(calc.parseMilitaryTime("23:59"),1439);
   for(const bad of ["2400","1260","1:30","6 PM",""])assert.equal(calc.parseMilitaryTime(bad),null);
-  assert.deepEqual(calc.measurementValues({height:175.26,heightUnit:"cm",weight:95.45,weightUnit:"kg"}),{heightInches:69,heightCentimeters:175.26,weightPounds:209.99,weightKilograms:95.45});
+  assert.deepEqual(calc.measurementValues({height:175.26,heightUnit:"cm",weight:95.45,weightUnit:"kg"}),{heightInputUnit:"cm",weightInputUnit:"kg",heightInches:69,heightCentimeters:175.26,weightPounds:209.99,weightKilograms:95.45});
+  assert.deepEqual(calc.measurementValues({height:"175.26 cm",weight:"95.45kg"}),{heightInputUnit:"cm",weightInputUnit:"kg",heightInches:69,heightCentimeters:175.26,weightPounds:209.99,weightKilograms:95.45});
+  assert.deepEqual(calc.measurementValues({height:"69",weight:"210"}),{heightInputUnit:"in",weightInputUnit:"lb",heightInches:69,heightCentimeters:175.26,weightPounds:210,weightKilograms:95.45});
+});
+
+test("Safari-formatted dates and military times are accepted",()=>{
+  const iso=calc.parseDateTime("2026-07-18","2300"),safari=calc.parseDateTime("07/18/2026","2300");
+  assert.equal(iso.getTime(),safari.getTime());
+  assert.equal(calc.parseDateTime("7/18/2026","1615").getHours(),16);
+  assert.equal(calc.parseDateTime("02/30/2026","1615"),null);
+  const window=calc.assessmentWindow(base({sampleDate:"07/18/2026",sampleTime:"2300",asystoleDate:"07/18/2026",asystoleTime:"1615"}));
+  assert.equal(window.errors.length,0);assert.equal(window.end.getHours(),16);assert.equal(window.start.getDate(),16);
 });
 
 test("approved weight formulas and rounding",()=>{
@@ -41,6 +52,25 @@ test("component defaults and explicit volumes",()=>{
   assert.equal(calc.entryVolume({component:"prbc",quantity:2}),700);
   assert.equal(calc.entryVolume({component:"ffp"}),275);
   assert.equal(calc.entryVolume({component:"saline",volume:400}),400);
+});
+
+test("crystalloid choices include medications, sodium bicarbonate, and named other fluids",()=>{
+  assert.equal(calc.COMPONENTS.medication.label,"Meds in Solution");
+  assert.equal(calc.COMPONENTS.sodium_bicarbonate.label,"Sodium Bicarbonate");
+  assert.equal(calc.COMPONENTS.medication.category,"medication");
+  assert.equal(calc.COMPONENTS.sodium_bicarbonate.category,"medication");
+  const unnamed=calc.calculate(base({entries:[{category:"crystalloid",component:"other_crystalloid",date:"2026-09-11",time:"1430",volume:100}]}));
+  assert.ok(unnamed.errors.some(error=>error.message.includes("name the other crystalloid")));
+  const named=calc.calculate(base({entries:[{category:"crystalloid",component:"other_crystalloid",customLabel:"Normosol",date:"2026-09-11",time:"1430",volume:100}]}));
+  assert.equal(named.errors.length,0);assert.equal(named.totals.crystalloids,100);
+});
+
+test("medication components keep the 25 mL and 500 mL rules when selected from the crystalloid section",()=>{
+  const r=calc.calculate(base({entries:[
+    {category:"crystalloid",component:"other_colloid",date:"2026-09-11",time:"1300",volume:3318},
+    {category:"crystalloid",component:"medication",date:"2026-09-11",time:"1430",volume:25}
+  ]}));
+  assert.equal(r.entries[1].category,"medication");assert.equal(r.totals.includeMedications,true);assert.equal(r.totals.crystalloids,25);
 });
 
 test("48-hour and one-hour windows plus 50 mL crystalloid threshold",()=>{
@@ -86,8 +116,9 @@ test("clinical review and sample timing flags appear",()=>{
 
 test("published shell loads calculator engine before UI and caches both",()=>{
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8"),index=read("index.html"),cache=read("sw.js"),ui=read("plasma-dilution-tool.js");
-  for(const file of ["plasma-dilution-calculator.js","plasma-dilution-tool.js"]){assert.ok(index.includes(`${file}?v=9184`));assert.ok(cache.includes(`"./${file}"`));}
+  for(const file of ["plasma-dilution-calculator.js","plasma-dilution-tool.js"]){assert.ok(index.includes(`${file}?v=9185`));assert.ok(cache.includes(`"./${file}"`));}
   assert.ok(index.indexOf("plasma-dilution-calculator.js")<index.indexOf("plasma-dilution-tool.js"));
   assert.ok(index.indexOf("planner-tools.js")<index.indexOf("plasma-dilution-tool.js"));
-  assert.ok(ui.includes("Plasma dilution calculator"));assert.ok(ui.includes("Inches"));assert.ok(ui.includes("Centimeters"));assert.ok(ui.includes("Pounds"));assert.ok(ui.includes("Kilograms"));
+  assert.ok(ui.includes("Plasma dilution calculator"));assert.ok(ui.includes("Inches by default"));assert.ok(ui.includes("add cm to convert"));assert.ok(ui.includes("Pounds by default"));assert.ok(ui.includes("add kg to convert"));
+  assert.ok(ui.includes("sodium_bicarbonate"));assert.ok(ui.includes("Other crystalloid name"));assert.ok(ui.includes("pd-custom-component"));
 });

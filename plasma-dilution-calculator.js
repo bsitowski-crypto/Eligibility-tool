@@ -40,10 +40,11 @@
     dextrose:{label:"Dextrose in water",category:"crystalloid",volume:null},
     balanced_electrolyte:{label:"Balanced electrolyte solution",category:"crystalloid",volume:null},
     tpn:{label:"Total parenteral nutrition (TPN)",category:"crystalloid",volume:null},
-    medication:{label:"Medication(s)",category:"medication",volume:null},
+    medication:{label:"Meds in Solution",category:"medication",volume:null},
+    sodium_bicarbonate:{label:"Sodium Bicarbonate",category:"medication",volume:null},
     other_blood:{label:"Other blood product",category:"blood",volume:null},
     other_colloid:{label:"Other colloid",category:"colloid",volume:null},
-    other_crystalloid:{label:"Other crystalloid",category:"crystalloid",volume:null}
+    other_crystalloid:{label:"Other",category:"crystalloid",volume:null}
   });
 
   function finiteNumber(value){
@@ -61,9 +62,14 @@
   }
 
   function parseDate(value){
-    const match=String(value??"").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!match)return null;
-    const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]);
+    const text=String(value??"").trim();
+    let match=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/),year,month,day;
+    if(match){year=Number(match[1]);month=Number(match[2]);day=Number(match[3]);}
+    else{
+      match=text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if(!match)return null;
+      month=Number(match[1]);day=Number(match[2]);year=Number(match[3]);
+    }
     const date=new Date(year,month-1,day);
     return date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day?date:null;
   }
@@ -75,11 +81,23 @@
     return date;
   }
 
+  function parseMeasurement(value,defaultUnit,allowedUnits){
+    if(typeof value==="number")return Number.isFinite(value)?{value,unit:defaultUnit}:null;
+    const match=String(value??"").trim().toLowerCase().match(/^([0-9]+(?:\.[0-9]+)?)\s*([a-z]+)?$/);
+    if(!match)return null;
+    const number=Number(match[1]),suffix=match[2]||"";
+    const unit=suffix?allowedUnits[suffix]:defaultUnit;
+    return Number.isFinite(number)&&unit?{value:number,unit}:null;
+  }
+
   function measurementValues(data){
-    const height=finiteNumber(data.height),weight=finiteNumber(data.weight);
-    const heightInches=height===null?null:data.heightUnit==="cm"?height/2.54:height;
-    const weightPounds=weight===null?null:data.weightUnit==="kg"?weight*2.2:weight;
+    const height=parseMeasurement(data.height,data.heightUnit==="cm"?"cm":"in",{in:"in",inch:"in",inches:"in",cm:"cm"});
+    const weight=parseMeasurement(data.weight,data.weightUnit==="kg"?"kg":"lb",{lb:"lb",lbs:"lb",pound:"lb",pounds:"lb",kg:"kg"});
+    const heightInches=height===null?null:height.unit==="cm"?height.value/2.54:height.value;
+    const weightPounds=weight===null?null:weight.unit==="kg"?weight.value*2.2:weight.value;
     return {
+      heightInputUnit:height?.unit??null,
+      weightInputUnit:weight?.unit??null,
       heightInches:heightInches===null?null:roundHundredth(heightInches),
       heightCentimeters:heightInches===null?null:roundHundredth(heightInches*2.54),
       weightPounds:weightPounds===null?null:roundHundredth(weightPounds),
@@ -145,11 +163,12 @@
 
   function normalizeEntry(entry,index,window){
     const component=COMPONENTS[entry.component]||null;
-    const category=entry.category||component?.category||null;
+    const category=component?.category||entry.category||null;
     const started=parseDateTime(entry.date,entry.time);
     const volume=entryVolume(entry);
     const errors=[];
     if(!category)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: select a category or component.`});
+    if(entry.component==="other_crystalloid"&&!String(entry.customLabel||"").trim())errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: name the other crystalloid.`});
     if(!started)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: enter a valid start date and military time.`});
     if(volume===null||volume<0)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: enter a valid volume.`});
     let inWindow=false;
@@ -230,7 +249,7 @@
   }
 
   return {
-    FLOW_RATES,COMPONENTS,parseMilitaryTime,parseDateTime,measurementValues,
+    FLOW_RATES,COMPONENTS,parseMilitaryTime,parseDateTime,parseMeasurement,measurementValues,
     calculateVolumes,assessmentWindow,calculateIncompleteVolume,entryVolume,calculate
   };
 });
