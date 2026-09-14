@@ -62,6 +62,21 @@
     }
     return [...new Set(out)].sort();
   }
+  function normalizeMasterItem(key,value){
+    if(typeof value!=="string"||!/staff/i.test(key))return value;
+    try{
+      const records=JSON.parse(value);
+      if(!Array.isArray(records))return value;
+      let changed=false;
+      for(const person of records){
+        if(person?.initials==="JTJ"&&String(person.surgicalGlove||"").trim()==="9.5"){
+          person.surgicalGlove="8.5";
+          changed=true;
+        }
+      }
+      return changed?JSON.stringify(records):value;
+    }catch{return value}
+  }
   function openMaster(){
     if(!isAdmin())return;
     const keys=masterKeys(),box=document.getElementById("collabMasterKeys");box.innerHTML=keys.length?keys.map(k=>'<div class="master-key"></div>').join(""):'<div class="collab-note">No matching local settings were detected on this device.</div>';
@@ -82,7 +97,7 @@
     try{
       const doc=await db.collection("masterSettings").doc(MASTER_DOC).get();if(!doc.exists)return;
       const items=(doc.data()||{}).items||{};let changed=false;
-      for(const [k,v] of Object.entries(items)){if(typeof v!=="string")continue;if(localStorage.getItem(k)!==v){localStorage.setItem(k,v);changed=true}}
+      for(const [k,raw] of Object.entries(items)){if(typeof raw!=="string")continue;const v=normalizeMasterItem(k,raw);if(localStorage.getItem(k)!==v){localStorage.setItem(k,v);changed=true}}
       if(changed&&sessionStorage.getItem("solvita_master_reload_guard")!=="1"){
         sessionStorage.setItem("solvita_master_reload_guard","1");location.reload();return;
       }

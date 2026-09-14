@@ -129,7 +129,7 @@
   function assessmentWindow(data){
     const sample=parseDateTime(data.sampleDate,data.sampleTime);
     const asystole=parseDateTime(data.asystoleDate,data.asystoleTime);
-    if(!sample||!asystole)return {sample,asystole,end:null,start:null,errors:[{field:"assessment",message:"Enter valid sample-draw and cardiac-asystole dates and military times."}]};
+    if(!sample||!asystole)return {sample,asystole,end:null,start:null,errors:[{field:"assessment",message:"Enter valid date/time of death and sample-draw date/time in military time."}]};
     const end=new Date(Math.min(sample.getTime(),asystole.getTime()));
     return {sample,asystole,end,start:new Date(end.getTime()-BLOOD_COLLOID_WINDOW_MS),errors:[]};
   }
@@ -169,6 +169,10 @@
     const errors=[];
     if(!category)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: select a category or component.`});
     if(entry.component==="other_crystalloid"&&!String(entry.customLabel||"").trim())errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: name the other crystalloid.`});
+    if(component?.volume!==null&&["blood","colloid"].includes(category)&&Object.prototype.hasOwnProperty.call(entry,"quantity")){
+      const quantity=finiteNumber(entry.quantity);
+      if(!Number.isInteger(quantity)||quantity<1)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: enter a whole number of units.`});
+    }
     if(!started)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: enter a valid start date and military time.`});
     if(volume===null||volume<0)errors.push({field:`entry-${index}`,message:`Fluid ${index+1}: enter a valid volume.`});
     let inWindow=false;
@@ -236,8 +240,8 @@
     if(data.obese===true||data.largeInfusions===true)flags.push("Special circumstance: Medical Director consultation is required to determine whether the CTS calculation applies.");
     if(window.sample&&window.asystole){
       const after=(window.sample-window.asystole)/HOUR_MS;
-      if(after>36)flags.push("Sample draw is more than 36 hours after cardiac asystole.");
-      if(after<-(7*24))flags.push("Sample draw is more than 7 days before cardiac asystole.");
+      if(after>36)flags.push("Sample draw is more than 36 hours after death.");
+      if(after<-(7*24))flags.push("Sample draw is more than 7 days before death.");
     }
     return {
       valid:errors.length===0,

@@ -50,8 +50,18 @@ test("worst-case incomplete infusion uses minute plus one and bag cap",()=>{
 
 test("component defaults and explicit volumes",()=>{
   assert.equal(calc.entryVolume({component:"prbc",quantity:2}),700);
-  assert.equal(calc.entryVolume({component:"ffp"}),275);
+  assert.equal(calc.entryVolume({component:"prbc",quantity:2,volume:625}),625);
+  assert.equal(calc.entryVolume({component:"ffp",quantity:3}),825);
   assert.equal(calc.entryVolume({component:"saline",volume:400}),400);
+});
+
+test("blood and colloid unit counts must be positive whole numbers",()=>{
+  const valid=calc.calculate(base({entries:[{component:"prbc",quantity:2,date:"2026-09-11",time:"1300"}]}));
+  assert.equal(valid.errors.length,0);assert.equal(valid.entries[0].volume,700);
+  for(const quantity of ["",0,1.5]){
+    const invalid=calc.calculate(base({entries:[{component:"ffp",quantity,date:"2026-09-11",time:"1300"}]}));
+    assert.ok(invalid.errors.some(error=>error.message.includes("whole number of units")));
+  }
 });
 
 test("crystalloid choices include medications, sodium bicarbonate, and named other fluids",()=>{
@@ -116,9 +126,12 @@ test("clinical review and sample timing flags appear",()=>{
 
 test("published shell loads calculator engine before UI and caches both",()=>{
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8"),index=read("index.html"),cache=read("sw.js"),ui=read("plasma-dilution-tool.js");
-  for(const file of ["plasma-dilution-calculator.js","plasma-dilution-tool.js"]){assert.ok(index.includes(`${file}?v=9185`));assert.ok(cache.includes(`"./${file}"`));}
+  for(const file of ["plasma-dilution-calculator.js","plasma-dilution-tool.js"]){assert.ok(index.includes(`${file}?v=9187`));assert.ok(cache.includes(`"./${file}"`));}
   assert.ok(index.indexOf("plasma-dilution-calculator.js")<index.indexOf("plasma-dilution-tool.js"));
   assert.ok(index.indexOf("planner-tools.js")<index.indexOf("plasma-dilution-tool.js"));
   assert.ok(ui.includes("Plasma dilution calculator"));assert.ok(ui.includes("Inches by default"));assert.ok(ui.includes("add cm to convert"));assert.ok(ui.includes("Pounds by default"));assert.ok(ui.includes("add kg to convert"));
   assert.ok(ui.includes("sodium_bicarbonate"));assert.ok(ui.includes("Other crystalloid name"));assert.ok(ui.includes("pd-custom-component"));
+  assert.ok(ui.indexOf("Date of death")<ui.indexOf("Sample draw date"));assert.ok(ui.includes("defaultDatesFromDeath"));assert.ok(ui.includes('data-death-default="true"'));
+  assert.ok(ui.includes("pd-entry-quantity"));assert.ok(ui.includes("applyUnitVolume"));assert.ok(ui.includes("Volume (mL)"));
+  assert.ok(!ui.includes("volume.readOnly"));assert.ok(!ui.includes("pd-entry-volume[readonly]"));
 });
