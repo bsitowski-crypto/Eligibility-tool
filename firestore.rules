@@ -1,0 +1,168 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "bsitowski@gmail.com";
+    }
+
+    function isApproved() {
+      return request.auth != null
+        && (
+          isAdmin()
+          || (
+            exists(
+              /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
+            )
+            && get(
+              /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
+            ).data.get('approved', false) == true
+            && get(
+              /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
+            ).data.get('mustResetPassword', false) == false
+          )
+        );
+    }
+
+    function teamBoardValid(d) {
+      return d.keys().hasAll([
+          'branchId', 'type', 'title', 'body', 'date', 'time', 'unit',
+          'every', 'until', 'index', 'completed', 'deleted', 'revision',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt'
+        ])
+        && d.keys().hasOnly([
+          'branchId', 'type', 'title', 'body', 'date', 'time', 'unit',
+          'every', 'until', 'index', 'completed', 'deleted', 'revision',
+          'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
+          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt'
+        ])
+        && d.branchId == 'pdx'
+        && d.type in ['note', 'event', 'task']
+        && d.title is string
+        && d.title.size() > 0
+        && d.title.size() <= 120
+        && d.body is string
+        && d.body.size() <= 5000
+        && d.date is string
+        && (d.date == '' || d.date.matches('2[01][0-9]{2}-[0-9]{2}-[0-9]{2}'))
+        && d.time is string
+        && (d.time == '' || d.time.matches('([01][0-9]|2[0-3])[0-5][0-9]'))
+        && d.unit in ['none', 'day', 'week', 'month']
+        && d.every is int
+        && d.every >= 1
+        && d.every <= 365
+        && d.until is string
+        && (
+          d.until == ''
+          || (
+            d.unit != 'none'
+            && d.until.matches('2[01][0-9]{2}-[0-9]{2}-[0-9]{2}')
+            && d.until >= d.date
+          )
+        )
+        && (d.type != 'note' || (d.date == '' && d.time == '' && d.unit == 'none'))
+        && (d.type != 'event' || d.date != '')
+        && (d.unit == 'none' || d.date != '')
+        && (d.time == '' || d.date != '')
+        && d.index is int
+        && d.index >= 0
+        && d.index <= 73050
+        && d.completed is bool
+        && d.deleted is bool
+        && d.revision is int
+        && d.revision >= 1
+        && d.createdBy is string
+        && d.createdAt is timestamp
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time
+        && d.lastCompletedDate is string
+        && d.lastCompletedDate.size() <= 10
+        && d.lastCompletedBy is string
+        && (d.lastCompletedAt == null || d.lastCompletedAt is timestamp);
+    }
+
+    match /donors/{donorId} {
+      allow read, write: if isApproved();
+    }
+
+    match /approvedUsers/{userId} {
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.uid == userId);
+
+      allow create, delete: if isAdmin();
+
+      allow update: if isAdmin()
+        || (
+          request.auth != null
+          && request.auth.uid == userId
+          && resource.data.mustResetPassword == true
+          && request.resource.data.mustResetPassword == false
+          && request.resource.data.diff(resource.data)
+               .affectedKeys()
+               .hasOnly(['mustResetPassword', 'passwordChangedAt'])
+        );
+    }
+
+    match /activityLogs/{logId} {
+      allow read: if isApproved();
+
+      allow create: if isApproved()
+        && request.resource.data.userUid == request.auth.uid;
+
+      allow update, delete: if false;
+    }
+
+    match /editing/{userId} {
+      allow read: if isApproved();
+
+      allow create, update, delete: if isApproved()
+        && request.auth.uid == userId;
+    }
+
+    match /masterSettings/{documentId} {
+      allow read: if isApproved();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /teamBoardItems/{itemId} {
+      allow get: if isApproved()
+        && (
+          !exists(
+            /databases/$(database)/documents/teamBoardItems/$(itemId)
+          )
+          || resource.data.branchId == 'pdx'
+        );
+
+      allow list: if isApproved()
+        && resource.data.branchId == 'pdx';
+
+      allow create: if isApproved()
+        && teamBoardValid(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.revision == 1
+        && request.resource.data.index == 0
+        && request.resource.data.completed == false
+        && request.resource.data.deleted == false
+        && request.resource.data.lastCompletedDate == ''
+        && request.resource.data.lastCompletedBy == ''
+        && request.resource.data.lastCompletedAt == null;
+
+      allow update: if isApproved()
+        && resource.data.branchId == 'pdx'
+        && teamBoardValid(request.resource.data)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.revision == resource.data.revision + 1;
+
+      // Deletion in the app is a recoverable "deleted" flag.
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
