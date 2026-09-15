@@ -72,16 +72,27 @@
   function applyBoneTrayRule(items,recovery){
     if(!Array.isArray(items))return items;
     const ids=recoveryIds(recovery);
-    const adiposeOnlyNonSkinSelection=ids.includes("adipose")&&
-      ids.every(id=>id==="adipose"||SKIN_IDS.has(id));
-    let boneTraySeen=false;
-    return items.flatMap(item=>{
-      if(key(item?.n)!=="bone tray")return [Object.assign({},item)];
-      if(adiposeOnlyNonSkinSelection||boneTraySeen)return [];
-      boneTraySeen=true;
-      return [Object.assign({},item,{q:1})];
-    });
+    const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
+    const hasNerves=ids.includes("nerves");
+    const hasVein=ids.some(id=>[
+      "saphArtivion","saphLeMaitre","femVeinArtivion","femVeinLeMaitre"
+    ].includes(id));
+    const output=items
+      .filter(item=>!["bone tray","bone kit"].includes(key(item?.n)))
+      .map(item=>Object.assign({},item));
+
+    // Skin never determines which setup is pulled. A combined nerve-and-vein
+    // recovery uses the tray; every other bone or bone/tendon recovery uses
+    // the kit. Vein-only and nerve-only cases use neither.
+    if(hasNerves&&hasVein){
+      output.push({c:"Recovery Kits",n:"Bone Tray",q:1,note:"Nerves plus vein recovery"});
+    }else if(hasBoneOrTendon){
+      output.push({c:"Recovery Kits",n:"Bone Kit",q:1,note:"Bone or bone/tendon recovery"});
+    }
+    return output;
   }
+
+  const applyBoneKitTrayRule=applyBoneTrayRule;
 
   // Kept for compatibility with any code that used the earlier rule name.
   const applyAdiposeBoneTrayRule=applyBoneTrayRule;
@@ -294,7 +305,7 @@
 
   const api={
     key,isMeSupply,rank,orderItems,recoveryIds,cordClampCount,
-    applyCordClampRule,applyBoneTrayRule,applyAdiposeBoneTrayRule,applyNonBoneSupplyRules,cultureQuantity
+    applyCordClampRule,applyBoneTrayRule,applyBoneKitTrayRule,applyAdiposeBoneTrayRule,applyNonBoneSupplyRules,cultureQuantity
   };
   root.PDXSupplyOrder=api;
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
