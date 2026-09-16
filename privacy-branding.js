@@ -2,6 +2,12 @@
   "use strict";
   let installed=false;
 
+  // Match email tokens first so branding never changes their local part or domain.
+  function brandText(text){
+    return text.replace(/[^\s<>"(),;:]+@[^\s<>"(),;:]+|Solvita/gi,
+      match=>match.includes("@")?match:"PDX");
+  }
+
   function replaceBrandText(root){
     root=root||document.body;
     if(!root)return;
@@ -11,13 +17,13 @@
       return /solvita/i.test(node.nodeValue||"")?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;
     }});
     const nodes=[];let n;while((n=walker.nextNode()))nodes.push(n);
-    for(const node of nodes)node.nodeValue=node.nodeValue.replace(/Solvita/gi,"PDX");
+    for(const node of nodes)node.nodeValue=brandText(node.nodeValue);
     document.querySelectorAll('[title],[aria-label],input[placeholder]').forEach(el=>{
       for(const a of ["title","aria-label","placeholder"]){
-        if(el.hasAttribute(a)&&/solvita/i.test(el.getAttribute(a)||""))el.setAttribute(a,(el.getAttribute(a)||"").replace(/Solvita/gi,"PDX"));
+        if(el.hasAttribute(a)&&/solvita/i.test(el.getAttribute(a)||""))el.setAttribute(a,brandText(el.getAttribute(a)||""));
       }
     });
-    if(/solvita/i.test(document.title))document.title=document.title.replace(/Solvita/gi,"PDX");
+    if(/solvita/i.test(document.title))document.title=brandText(document.title);
   }
 
   function removeNameFields(){
