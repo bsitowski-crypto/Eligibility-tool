@@ -82,10 +82,12 @@ test("tool integration includes scripts, offline shell, and header exemption",()
   const fs=require("node:fs"),path=require("node:path");
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8");
   const index=read("index.html"),cache=read("sw.js"),ui=read("planner-tools.js");
-  for(const file of ["cooling-calculator.js","planner-tools.js"]){assert.ok(index.includes(`${file}?v=9175`));assert.ok(cache.includes(`"./${file}"`));}
+  for(const file of ["cooling-calculator.js","planner-tools.js"]){assert.ok(index.includes(`${file}?v=9189`));assert.ok(cache.includes(`"./${file}"`));}
   assert.ok(index.indexOf("cooling-calculator.js")<index.indexOf("planner-tools.js"));
   assert.ok(read("compact-menu.js").includes('el.id==="plannerToolsButton"'));
-  assert.ok(ui.includes('const DEFAULT_INTERVALS=3'));assert.ok(ui.includes('for(let i=0;i<DEFAULT_INTERVALS;i++)addInterval(false)'));assert.ok(ui.includes('dialog.addEventListener("input",update)'));assert.ok(ui.includes('@media(min-width:701px)'));assert.ok(ui.includes('@media(max-width:700px)'));assert.ok(ui.includes('dialog.showModal()'));
+  assert.ok(ui.includes('const DEFAULT_INTERVALS=3'));assert.ok(ui.includes('for(let i=0;i<DEFAULT_INTERVALS;i++)addInterval(false)'));assert.ok(ui.includes('dialog.addEventListener("input",update)'));assert.ok(ui.includes('@media(max-width:700px)'));assert.ok(ui.includes('dialog.showModal()'));
+  assert.ok(ui.includes('"TOD"'));assert.ok(ui.includes('"Cooling started"'));assert.ok(ui.includes('"Out"'));assert.ok(ui.includes('"In"'));assert.ok(ui.includes('"Skin prep"'));assert.ok(ui.includes('CALCULATED TIME'));
+  assert.ok(ui.includes('untilPrep:!!prep.trim()'));assert.ok(!ui.includes('data-until'));
   assert.ok(!ui.includes('type="date"'));assert.ok(!ui.includes('24-hour check'));
   assert.ok(!ui.includes('localStorage'));assert.ok(!ui.includes('fetch('));
 });
