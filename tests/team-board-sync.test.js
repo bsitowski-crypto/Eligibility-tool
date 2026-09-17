@@ -46,7 +46,7 @@ test('late snapshots from previous account cannot re-enable access',()=>{
 });
 test('integration is outside donor rendering, loaded in order, and cached',()=>{
   const read=n=>fs.readFileSync(path.join(__dirname,'..',n),'utf8');const index=read('index.html'),sw=read('sw.js'),ui=read('team-board.js');
-  for(const file of ['team-board-model.js','team-board.js']){assert.ok(index.includes(`${file}?v=9188`));assert.ok(sw.includes(`"./${file}"`));}
+  for(const file of ['team-board-model.js','team-board.js']){assert.ok(index.includes(`${file}?v=9191`));assert.ok(sw.includes(`"./${file}"`));}
   assert.ok(index.indexOf('team-board-model.js')<index.indexOf('team-board.js'));assert.ok(ui.includes("const home=$('homeView')"));assert.ok(ui.includes('home.append(host)'));
   assert.ok(!ui.includes('localStorage'));assert.ok(!ui.includes('.innerHTML=item'));assert.ok(ui.includes("confirm(`Move"));assert.ok(ui.includes("{deleted:true}"));assert.ok(!ui.includes('.delete('));
 });

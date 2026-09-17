@@ -71,3 +71,42 @@ test('undo completion restores exactly the previous occurrence',()=>{
 test('model functions never mutate their input',()=>{
   const b=Object.freeze(base());M.validate(b);M.due(b);M.status(b);M.complete(b);assert.equal(b.index,0);
 });
+test('ceiling cleaning appears on the first, is due through the seventh, and is overdue on the eighth',()=>{
+  const b=base({date:'2026-10-07',time:'',boardLeadDays:6});M.validate(b);
+  assert.equal(M.visible(b,{date:'2026-09-30',time:'2359'}),false);
+  assert.equal(M.visible(b,{date:'2026-10-01',time:'0000'}),true);
+  assert.equal(M.status(b,{date:'2026-10-07',time:'2359'}),'Today');
+  assert.equal(M.status(b,{date:'2026-10-08',time:'0000'}),'Overdue');
+  const next={...b,...M.complete(b)};
+  assert.equal(M.boardDate(next),'2026-11-01');
+  assert.equal(M.visible(next,{date:'2026-10-08',time:'0800'}),false);
+  assert.equal(M.visible(next,{date:'2026-11-01',time:'0000'}),true);
+});
+test('third Thursday stays third Thursday across months and years',()=>{
+  const b=base({type:'event',date:'2026-09-17',monthlyMode:'weekday'});M.validate(b);
+  assert.deepEqual([0,1,2,3,4,5].map(n=>M.occurrence(b,n)),['2026-09-17','2026-10-15','2026-11-19','2026-12-17','2027-01-21','2027-02-18']);
+  assert.equal(M.due(b,{date:'2026-10-16',time:'0000'}),'2026-11-19');
+  assert.match(M.repeatLabel(b),/third Thursday/);
+});
+test('last weekday supports months with four or five Thursdays and leap February',()=>{
+  const b=base({type:'event',date:'2028-01-27',monthlyMode:'lastWeekday'});M.validate(b);
+  assert.deepEqual([0,1,2].map(n=>M.occurrence(b,n)),['2028-01-27','2028-02-24','2028-03-30']);
+  assert.throws(()=>M.validate(base({date:'2026-10-29',monthlyMode:'weekday'})));
+  assert.throws(()=>M.validate(base({date:'2026-10-15',monthlyMode:'lastWeekday'})));
+});
+test('calendar shows completed and future occurrences without advancing the pending task',()=>{
+  const b=base({date:'2026-01-07',index:1,boardLeadDays:6});
+  const rows=M.inRange(b,'2026-01-01','2026-03-31');
+  assert.deepEqual(rows.map(o=>[o.date,o.completed]),[['2026-01-07',true],['2026-02-07',false],['2026-03-07',false]]);
+  assert.equal(b.index,1);
+  assert.deepEqual(M.inRange({...b,deleted:true},'2026-01-01','2026-03-31'),[]);
+});
+test('calendar respects repeat end, interval, and single occurrence bounds',()=>{
+  const b=base({date:'2026-09-17',monthlyMode:'weekday',every:2,until:'2027-01-21'});
+  assert.deepEqual(M.inRange(b,'2026-10-01','2027-03-31').map(o=>o.date),['2026-11-19','2027-01-21']);
+  assert.equal(M.inRange(base({unit:'none'}),'2026-02-01','2026-02-28').length,0);
+});
+test('board display defaults preserve legacy items and validate scheduled visibility',()=>{
+  assert.equal(M.visible(base(),{date:'2025-01-01',time:'0000'}),true);
+  for(const patch of [{boardLeadDays:-1},{boardLeadDays:366},{boardLeadDays:1.5},{boardLeadDays:'6'},{monthlyMode:'bad'},{unit:'day',monthlyMode:'weekday'},{date:'',time:'',unit:'none',boardLeadDays:0}])assert.throws(()=>M.validate(base(patch)));
+});

@@ -36,8 +36,15 @@ service cloud.firestore {
           'branchId', 'type', 'title', 'body', 'date', 'time', 'unit',
           'every', 'until', 'index', 'completed', 'deleted', 'revision',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
-          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt'
+          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt',
+          'monthlyMode', 'boardLeadDays'
         ])
+        && d.get('monthlyMode', 'date') in ['date','weekday','lastWeekday']
+        && (d.get('monthlyMode', 'date') == 'date' || d.unit == 'month')
+        && (d.get('boardLeadDays', null) == null || (
+          d.boardLeadDays is int && d.boardLeadDays >= 0 && d.boardLeadDays <= 365
+          && d.date != '' && d.type != 'note'
+        ))
         && d.branchId == 'pdx'
         && d.type in ['note', 'event', 'task']
         && d.title is string

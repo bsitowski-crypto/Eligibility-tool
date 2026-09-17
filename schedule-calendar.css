@@ -1,0 +1,31 @@
+.tb-home-schedule{display:flex;justify-content:flex-end;margin:0 0 16px}
+#tb-open-schedule{background:#183153;color:#fff;border:0;border-radius:9px;padding:11px 20px;font:inherit;font-weight:700;cursor:pointer;min-height:44px}
+#teamBoard .tb-item-overdue h3,#teamSchedule .tb-item-overdue h3{color:#a32b3e;font-weight:800}
+#teamSchedule{box-sizing:border-box;width:min(900px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:24px;border:0;border-radius:16px;background:#fff;color:#183153;font-family:inherit;text-align:left}
+#teamSchedule *{box-sizing:border-box}
+#teamSchedule::backdrop{background:#071f3ebb}
+#teamSchedule header{position:static;background:transparent;color:inherit;padding:0;z-index:auto}
+#teamSchedule h2,#teamSchedule h3{margin:0}
+#teamSchedule h2{font-size:24px}
+#teamSchedule h3{font-size:17px;overflow-wrap:anywhere}
+#teamSchedule p{margin:6px 0;font-size:14px;overflow-wrap:anywhere}
+#teamSchedule .tb-muted{font-size:13px;color:#596b7f;line-height:1.5}
+#teamSchedule .tb-detail{white-space:pre-wrap}
+#teamSchedule button{font:inherit;font-size:14px;font-weight:650;min-height:44px;padding:8px 12px;border:1px solid #bccbda;border-radius:8px;background:#edf3fa;color:#183153;cursor:pointer}
+#teamSchedule button:disabled{opacity:.5;cursor:not-allowed}
+#teamSchedule :focus-visible,#tb-open-schedule:focus-visible{outline:3px solid #428bc5;outline-offset:2px}
+.tb-calendar-header,.tb-calendar-nav,.tb-calendar-add{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tb-calendar-nav{margin:22px 0 14px;justify-content:flex-start}
+#teamSchedule #tb-month-label{flex:1}
+#tb-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.tb-weekday{font-size:12px;text-align:center;font-weight:700;padding:6px 0}
+#teamSchedule .tb-calendar-day{min-width:0;min-height:100px;background:#fff;text-align:left;padding:8px;display:flex;flex-direction:column;align-items:stretch;gap:5px;border-color:#dde5ee}
+#teamSchedule .tb-calendar-day.tb-today .tb-day-number{color:#fff;background:#183153;border-radius:50%;width:25px;height:25px;text-align:center;line-height:25px}
+#teamSchedule .tb-calendar-day.tb-selected{border:2px solid #397baa;background:#f0f7fc;padding:7px}
+.tb-calendar-chip{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;line-height:1.5;color:#234664}
+.tb-calendar-chip.tb-done{text-decoration:line-through;color:#64748b}
+.tb-calendar-agenda{margin-top:24px;padding-top:18px;border-top:1px solid #dde5ee}
+.tb-agenda-item{padding:16px 0;border-bottom:1px solid #dde5ee}
+#teamSchedule .tb-agenda-item button{margin:8px 8px 0 0}
+@media(max-width:600px){#teamSchedule{padding:14px}#tb-calendar-grid{gap:3px}#teamSchedule .tb-calendar-day{min-height:76px;padding:4px}#teamSchedule .tb-calendar-day.tb-selected{padding:3px}.tb-calendar-chip{font-size:10px}.tb-calendar-header{flex-wrap:wrap}.tb-calendar-nav{gap:6px}#teamSchedule .tb-calendar-nav button{padding:8px}#teamSchedule #tb-month-label{font-size:16px}.tb-calendar-add{gap:6px}}
+@media print{.tb-home-schedule,#teamSchedule{display:none!important}}

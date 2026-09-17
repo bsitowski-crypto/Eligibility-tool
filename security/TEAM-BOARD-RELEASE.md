@@ -1,5 +1,43 @@
 # Team board release notes
 
+## Schedule calendar update
+
+The Home Screen now has a Schedule button opening a month calendar. Selecting a
+date shows its events and tasks and pre-fills the date when adding either kind.
+Recurring items remain editable as a series. Existing items without new fields
+retain their existing dates and immediate board visibility.
+
+- `monthlyMode` is optional: `date` (default), `weekday` (first through fourth
+  weekday, based on the first date), or `lastWeekday`. For third-Thursday staff
+  meetings, select an actual third Thursday and the same-weekday pattern.
+- `boardLeadDays` is optional/null for immediate display, or 0–365 days before
+  each occurrence. For monthly ceiling cleaning, select the 7th as the first due
+  date, repeat monthly, and enter 6 days. It appears on the 1st; date-only tasks
+  turn red and bold on the 8th. Completed occurrences advance individually.
+- The calendar and All items filter include future scheduled items even before
+  their board display date. Normal board filters respect the display date.
+- Tasks with completion history retain their recurrence, but title, details and
+  board display timing remain editable. The calendar derives completion from
+  the existing sequential task history; it does not add a separate audit log.
+
+The optional fields must be allowed by the deployed Firestore rules **before**
+releasing the new web assets. These changes preserve existing approval, branch,
+revision and author constraints. A Pages deployment alone does not update rules.
+Use the release checks below; do not publish assets alone. No production
+schedule records are pre-seeded by this change.
+
+Local model coverage includes first/seventh/eighth-day boundaries, next-month
+visibility, third Thursdays across years, last weekdays, leap February, end
+dates and calendar completion history. `tests/team-schedule.browser.js` uses an
+in-memory database only and exercises calendar navigation, editing, saving,
+completion and phone layout. Run with Playwright installed; optionally set
+`SCHEDULE_BROWSER_PATH` to a Chromium binary.
+
+The standalone staffing parser test requires an external workbook fixture and
+is unrelated to this calendar. Do not count its missing-fixture error as a
+calendar regression. Production permission checks still require the release
+procedure below.
+
 Adds `team-board-model.js` and `team-board.js` after the donor board in `homeView`.
 The board is layered onto the current planner release so newer calculator,
 dashboard, and supply-rule changes remain intact.

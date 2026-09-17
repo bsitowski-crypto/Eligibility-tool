@@ -2,7 +2,10 @@
 // Current deployment is PDX only; this does NOT implement multi-branch access.
 function teamBoardValid(d) {
   return d.keys().hasAll(['branchId','type','title','body','date','time','unit','every','until','index','completed','deleted','revision','createdBy','createdAt','updatedBy','updatedAt','lastCompletedDate','lastCompletedBy','lastCompletedAt'])
-    && d.keys().hasOnly(['branchId','type','title','body','date','time','unit','every','until','index','completed','deleted','revision','createdBy','createdAt','updatedBy','updatedAt','lastCompletedDate','lastCompletedBy','lastCompletedAt'])
+    && d.keys().hasOnly(['branchId','type','title','body','date','time','unit','every','until','index','completed','deleted','revision','createdBy','createdAt','updatedBy','updatedAt','lastCompletedDate','lastCompletedBy','lastCompletedAt', 'monthlyMode', 'boardLeadDays'])
+    && d.get('monthlyMode', 'date') in ['date','weekday','lastWeekday']
+    && (d.get('monthlyMode', 'date') == 'date' || d.unit == 'month')
+    && (d.get('boardLeadDays', null) == null || (d.boardLeadDays is int && d.boardLeadDays >= 0 && d.boardLeadDays <= 365 && d.date != '' && d.type != 'note'))
     && d.branchId == 'pdx'
     && d.type in ['note','event','task']
     && d.title is string && d.title.size() > 0 && d.title.size() <= 120
