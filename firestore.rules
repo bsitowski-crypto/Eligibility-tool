@@ -11,6 +11,16 @@ service cloud.firestore {
       return request.auth != null
         && (
           isAdmin()
+          || exists(
+            /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
+          )
+        );
+    }
+
+    function isTeamBoardApproved() {
+      return request.auth != null
+        && (
+          isAdmin()
           || (
             exists(
               /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
@@ -134,7 +144,7 @@ service cloud.firestore {
     }
 
     match /teamBoardItems/{itemId} {
-      allow get: if isApproved()
+      allow get: if isTeamBoardApproved()
         && (
           !exists(
             /databases/$(database)/documents/teamBoardItems/$(itemId)
@@ -142,10 +152,10 @@ service cloud.firestore {
           || resource.data.branchId == 'pdx'
         );
 
-      allow list: if isApproved()
+      allow list: if isTeamBoardApproved()
         && resource.data.branchId == 'pdx';
 
-      allow create: if isApproved()
+      allow create: if isTeamBoardApproved()
         && teamBoardValid(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
@@ -157,7 +167,7 @@ service cloud.firestore {
         && request.resource.data.lastCompletedBy == ''
         && request.resource.data.lastCompletedAt == null;
 
-      allow update: if isApproved()
+      allow update: if isTeamBoardApproved()
         && resource.data.branchId == 'pdx'
         && teamBoardValid(request.resource.data)
         && request.resource.data.createdBy == resource.data.createdBy

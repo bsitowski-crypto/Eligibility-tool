@@ -44,21 +44,20 @@ dashboard, and supply-rule changes remain intact.
 
 ## Required before publishing
 
-The live Firestore rules were supplied by the owner on September 1, 2026. The
+The current live Firestore rules were supplied by the owner on September 20, 2026. The
 reviewed complete replacement is saved as `firestore.rules`. **Publish and test
 that ruleset before publishing the Team board web assets.**
 
 1. Replace the Firebase console editor with the complete `firestore.rules`. This
-   preserves all supplied collection rules, adds the Team board, and corrects
-   `isApproved()` so merely retaining a revoked approval document no longer
-   grants database access.
+   preserves all supplied collection rules and the separate `isApproved()` and
+   `isTeamBoardApproved()` helpers. Only the optional schedule fields and their
+   validation are added to the live rules.
 3. Run Firestore emulator tests against the complete rules: deny unauthenticated,
    missing approval, approved=false, mustResetPassword=true; allow two distinct
    approved users to create/read/edit/complete/soft-delete/restore the same PDX
    item; deny branch changes, invalid schemas, changed creator, forged editor,
    stale revision, permanent deletion. Test approvedUsers self-read is permitted
-   and clients cannot self-approve. Verify the planner administrator has an
-   approvedUsers record; there is intentionally no email-only bypass here.
+   and clients cannot self-approve. The owner-supplied rules retain the existing administrator email bypass.
 4. Check auth sign-out/revocation clears displayed board data and an open editor;
    failed saves retain entries and never show success. Verify reconnect and
    cross-device updates with two approved test accounts and synthetic records.
@@ -83,7 +82,7 @@ that ruleset before publishing the Team board web assets.**
   the original day the next month. Events show today's/next occurrence.
 - Tasks preserve overdue occurrences until completed one at a time. The latest
   check-off can be undone; this is not a full per-occurrence audit archive.
-  After a check-off, only task title/details can be edited; changing its schedule
+  After a check-off, task title/details and board display timing can be edited; changing its schedule
   requires a new task. Edit/delete labels explicitly describe series scope.
 - Deletion moves the entire item/series to Trash; any approved user can restore.
   No permanent delete action. No donor data or medical identifiers in fixtures.

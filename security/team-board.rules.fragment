@@ -30,9 +30,9 @@ function teamBoardValid(d) {
 }
 match /teamBoardItems/{itemId} {
   // Allow a transaction's get of a not-yet-created document; lists must scope PDX.
-  allow get: if isApproved() && (!exists(/databases/$(database)/documents/teamBoardItems/$(itemId)) || resource.data.branchId == 'pdx');
-  allow list: if isApproved() && resource.data.branchId == 'pdx';
-  allow create: if isApproved() && teamBoardValid(request.resource.data)
+  allow get: if isTeamBoardApproved() && (!exists(/databases/$(database)/documents/teamBoardItems/$(itemId)) || resource.data.branchId == 'pdx');
+  allow list: if isTeamBoardApproved() && resource.data.branchId == 'pdx';
+  allow create: if isTeamBoardApproved() && teamBoardValid(request.resource.data)
     && request.resource.data.createdBy == request.auth.uid
     && request.resource.data.createdAt == request.time
     && request.resource.data.revision == 1
@@ -42,7 +42,7 @@ match /teamBoardItems/{itemId} {
     && request.resource.data.lastCompletedDate == ''
     && request.resource.data.lastCompletedBy == ''
     && request.resource.data.lastCompletedAt == null;
-  allow update: if isApproved() && resource.data.branchId == 'pdx'
+  allow update: if isTeamBoardApproved() && resource.data.branchId == 'pdx'
     && teamBoardValid(request.resource.data)
     && request.resource.data.createdBy == resource.data.createdBy
     && request.resource.data.createdAt == resource.data.createdAt
