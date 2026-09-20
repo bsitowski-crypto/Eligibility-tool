@@ -11,6 +11,16 @@ service cloud.firestore {
       return request.auth != null
         && (
           isAdmin()
+          || exists(
+            /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
+          )
+        );
+    }
+
+    function isTeamBoardApproved() {
+      return request.auth != null
+        && (
+          isAdmin()
           || (
             exists(
               /databases/$(database)/documents/approvedUsers/$(request.auth.uid)
@@ -36,8 +46,15 @@ service cloud.firestore {
           'branchId', 'type', 'title', 'body', 'date', 'time', 'unit',
           'every', 'until', 'index', 'completed', 'deleted', 'revision',
           'createdBy', 'createdAt', 'updatedBy', 'updatedAt',
-          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt'
+          'lastCompletedDate', 'lastCompletedBy', 'lastCompletedAt',
+          'monthlyMode', 'boardLeadDays'
         ])
+        && d.get('monthlyMode', 'date') in ['date','weekday','lastWeekday']
+        && (d.get('monthlyMode', 'date') == 'date' || d.unit == 'month')
+        && (d.get('boardLeadDays', null) == null || (
+          d.boardLeadDays is int && d.boardLeadDays >= 0 && d.boardLeadDays <= 365
+          && d.date != '' && d.type != 'note'
+        ))
         && d.branchId == 'pdx'
         && d.type in ['note', 'event', 'task']
         && d.title is string
@@ -127,7 +144,7 @@ service cloud.firestore {
     }
 
     match /teamBoardItems/{itemId} {
-      allow get: if isApproved()
+      allow get: if isTeamBoardApproved()
         && (
           !exists(
             /databases/$(database)/documents/teamBoardItems/$(itemId)
@@ -135,10 +152,10 @@ service cloud.firestore {
           || resource.data.branchId == 'pdx'
         );
 
-      allow list: if isApproved()
+      allow list: if isTeamBoardApproved()
         && resource.data.branchId == 'pdx';
 
-      allow create: if isApproved()
+      allow create: if isTeamBoardApproved()
         && teamBoardValid(request.resource.data)
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.createdAt == request.time
@@ -150,7 +167,7 @@ service cloud.firestore {
         && request.resource.data.lastCompletedBy == ''
         && request.resource.data.lastCompletedAt == null;
 
-      allow update: if isApproved()
+      allow update: if isTeamBoardApproved()
         && resource.data.branchId == 'pdx'
         && teamBoardValid(request.resource.data)
         && request.resource.data.createdBy == resource.data.createdBy

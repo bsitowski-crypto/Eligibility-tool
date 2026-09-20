@@ -24,6 +24,11 @@
     if(item.until&&(parseDate(item.until)===null||item.until<item.date))throw Error('Repeat end date must be on or after the first date.');
     if(item.unit==='none'&&item.until)throw Error('A repeat end date requires a repeating schedule.');
     if(item.index!==undefined&&(!Number.isInteger(item.index)||item.index<0||item.index>73050))throw Error('Invalid occurrence number.');
+    const mode=item.monthlyMode||'date';
+    if(!['date','weekday','lastWeekday'].includes(mode)||mode!=='date'&&item.unit!=='month')throw Error('Choose a valid monthly repeat.');
+    if(mode==='weekday'&&new Date(parseDate(item.date)).getUTCDate()>28)throw Error('For a fifth weekday, choose the last weekday option instead.');
+    if(mode==='lastWeekday'&&new Date(parseDate(item.date)+7*DAY).getUTCMonth()===new Date(parseDate(item.date)).getUTCMonth())throw Error('Choose a first date on the last occurrence of that weekday in its month.');
+    if(item.boardLeadDays!=null&&(!Number.isInteger(item.boardLeadDays)||item.boardLeadDays<0||item.boardLeadDays>365||!item.date||item.type==='note'))throw Error('Choose a dated event or task and 0–365 days before it to show on the board.');
     return item;
   }
   // Anchor monthly repeats to the original day, clamping only short months.
@@ -35,7 +40,10 @@
     if(item.unit==='day'||item.unit==='week')d.setUTCDate(d.getUTCDate()+step*(item.unit==='week'?7:1));
     else if(item.unit==='month'){
       const day=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+step);
-      const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(day,last));
+      const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate(),mode=item.monthlyMode||'date',weekday=new Date(start).getUTCDay();
+      if(mode==='weekday')d.setUTCDate(1+(weekday-d.getUTCDay()+7)%7+7*Math.floor((day-1)/7));
+      else if(mode==='lastWeekday'){d.setUTCDate(last);d.setUTCDate(last-(d.getUTCDay()-weekday+7)%7);}
+      else d.setUTCDate(Math.min(day,last));
     }
     if(!Number.isFinite(d.getTime())||d.getUTCFullYear()>2199)return null;
     const date=d.toISOString().slice(0,10);return item.until&&date>item.until?null:date;
@@ -65,6 +73,25 @@
     if(item.type!=='task'||item.deleted||!item.lastCompletedDate)throw Error('There is no completion to undo.');
     return {index:item.completed?item.index:Math.max(0,item.index-1),completed:false,lastCompletedDate:'',lastCompletedBy:'',lastCompletedAt:null};
   }
-  function repeatLabel(item){return item.unit==='none'?'Does not repeat':`Every ${item.every} ${item.unit}${item.every===1?'':'s'}${item.until?' · until '+item.until:''}`;}
-  return {ZONE,parseDate,time,today,validate,occurrence,eventIndex,due,status,complete,reopen,repeatLabel};
+  function monthlyLabel(item){
+    const d=new Date(parseDate(item.date));
+    return `${item.monthlyMode==='lastWeekday'?'last':['first','second','third','fourth','fifth'][Math.floor((d.getUTCDate()-1)/7)]} ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getUTCDay()]}`;
+  }
+  function repeatLabel(item){return item.unit==='none'?'Does not repeat':`Every ${item.every} ${item.unit}${item.every===1?'':'s'}${item.unit==='month'&&item.monthlyMode&&item.monthlyMode!=='date'?' · '+monthlyLabel(item):''}${item.until?' · until '+item.until:''}`;}
+  function boardDate(item,date=due(item)){
+    return date&&item.boardLeadDays!=null?new Date(parseDate(date)-item.boardLeadDays*DAY).toISOString().slice(0,10):null;
+  }
+  function visible(item,current=today()){
+    const start=boardDate(item,due(item,current));return !start||start<=current.date;
+  }
+  function inRange(item,from,to){
+    if(item.deleted||item.type==='note'||!item.date)return [];
+    const results=[];let index=eventIndex(item,{date:from,time:'0000'}),date;
+    while((date=occurrence(item,index))&&date<=to){
+      if(date>=from)results.push({item,index,date,completed:item.type==='task'&&(index<(item.index||0)||item.completed&&index===(item.index||0))});
+      index++;if(item.unit==='none')break;
+    }
+    return results;
+  }
+  return {ZONE,parseDate,time,today,validate,occurrence,eventIndex,due,status,complete,reopen,repeatLabel,monthlyLabel,boardDate,visible,inRange};
 });

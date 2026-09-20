@@ -4,6 +4,7 @@
   const COLLECTION='teamBoardItems';
   const ADMIN_EMAIL='bsitowski@gmail.com';
   let host,dialog,form,db,auth,user=null,approved=false,online=false,items=[],filter='open',editing=null,busy=false,epoch=0,stopItems=null,stopApproval=null;
+  let calendar,calendarMonth=M.today().date.slice(0,7),selectedDate=M.today().date;
   const $=id=>document.getElementById(id);
   function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
   function action(label,fn){const b=el('button',label);b.type='button';b.addEventListener('click',fn);return b;}
@@ -12,11 +13,13 @@
   function controls(){
     host.querySelectorAll('button[data-write]').forEach(b=>b.disabled=!canWrite());
     $('tb-save').disabled=!canWrite();$('tb-close').disabled=busy;
+    calendar?.querySelectorAll('button[data-write]').forEach(b=>b.disabled=!canWrite());
   }
   function formatDate(date,clock){if(!date)return 'No due date';const [y,m,d]=date.split('-');return `${m}/${d}/${y}${clock?' · '+clock:''}`;}
   function render(){
-    const list=$('tb-list');list.replaceChildren();controls();if(!approved)return;
+    const list=$('tb-list');list.replaceChildren();controls();renderCalendar();if(!approved)return;
     const current=M.today();let shown=items.filter(i=>filter==='trash'?i.deleted:!i.deleted&&(filter==='all'||filter===i.type||(filter==='open'&&!['Completed','Past','Series ended'].includes(M.status(i,current)))));
+    if(!['all','trash'].includes(filter))shown=shown.filter(i=>M.visible(i,current));
     shown.sort((a,b)=>(M.due(a,current)||'9999').localeCompare(M.due(b,current)||'9999')||a.title.localeCompare(b.title));
     if(!shown.length)list.append(el('p',filter==='trash'?'Trash is empty.':'No items here yet. Add a note, event, or task.','tb-muted'));
     for(const item of shown){
@@ -24,7 +27,9 @@
       const kind=el('span',item.type==='note'?'NOTE':item.type==='event'?'EVENT':'TASK','tb-kind');head.append(kind,el('h3',item.title));content.append(head);
       if(item.body)content.append(el('p',item.body,'tb-detail'));
       const state=M.status(item,current),due=M.due(item,current);
+      if(state==='Overdue')card.classList.add('tb-item-overdue');
       if(item.type!=='note')content.append(el('p',`${state} · ${formatDate(due,item.time)} · ${M.repeatLabel(item)}`,state==='Overdue'?'tb-overdue':'tb-muted'));
+      if(M.boardDate(item,due))content.append(el('p',`On team board from ${formatDate(M.boardDate(item,due))}`,'tb-muted'));
       if(item.lastCompletedDate)content.append(el('p',`Last checked off: ${formatDate(item.lastCompletedDate,item.time)}${item.unit!=='none'&&!item.completed?' · Next occurrence shown above':''}`,'tb-muted'));
       const buttons=el('div',undefined,'tb-actions');
       function add(label,fn){const b=action(label,fn);b.dataset.write='';b.disabled=!canWrite();buttons.append(b);}
@@ -41,6 +46,47 @@
       }
       card.append(content,buttons);list.append(card);
     }
+  }
+  function renderCalendar(){
+    if(!calendar||!calendar.open)return;
+    const grid=$('tb-calendar-grid'),agenda=$('tb-agenda');grid.replaceChildren();agenda.replaceChildren();
+    const start=new Date(calendarMonth+'-01T00:00:00Z'),last=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+1,0)).toISOString().slice(0,10);
+    $('tb-month-label').textContent=start.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+    $('tb-selected-label').textContent=formatDate(selectedDate);
+    const occurrences=approved?items.flatMap(i=>M.inRange(i,calendarMonth+'-01',last)):[];
+    occurrences.sort((a,b)=>a.date.localeCompare(b.date)||(a.item.time||'').localeCompare(b.item.time||'')||a.item.title.localeCompare(b.item.title));
+    for(const day of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'])grid.append(el('div',day,'tb-weekday'));
+    for(let n=0;n<start.getUTCDay();n++)grid.append(el('div',undefined,'tb-calendar-blank'));
+    for(let day=1;day<=Number(last.slice(-2));day++){
+      const date=calendarMonth+'-'+String(day).padStart(2,'0'),entries=occurrences.filter(o=>o.date===date),b=action('',()=>{selectedDate=date;renderCalendar();});
+      b.className='tb-calendar-day';b.classList.toggle('tb-selected',date===selectedDate);b.classList.toggle('tb-today',date===M.today().date);
+      b.setAttribute('aria-pressed',String(date===selectedDate));b.setAttribute('aria-label',`${formatDate(date)}, ${entries.length} scheduled item${entries.length===1?'':'s'}`);
+      b.append(el('span',String(day),'tb-day-number'));
+      for(const o of entries.slice(0,2))b.append(el('span',(o.completed?'✓ ':o.item.type==='task'?'□ ':'• ')+o.item.title,'tb-calendar-chip'+(o.completed?' tb-done':'')));
+      if(entries.length>2)b.append(el('span',`+${entries.length-2} more`,'tb-calendar-chip'));
+      grid.append(b);
+    }
+    const selected=occurrences.filter(o=>o.date===selectedDate);
+    if(!approved)agenda.append(el('p','Sign in with an approved planner account to see the schedule.','tb-muted'));
+    else if(!selected.length)agenda.append(el('p','Nothing scheduled. Add an event or task for this date.','tb-muted'));
+    for(const o of selected){
+      const row=el('article',undefined,'tb-agenda-item'),current=M.today(),overdue=o.item.type==='task'&&!o.completed&&(o.date<current.date||o.date===current.date&&o.item.time&&o.item.time<current.time);
+      if(overdue)row.classList.add('tb-item-overdue');
+      row.append(el('h3',o.item.title),el('p',`${o.item.type==='task'?'Task due':'Event'} · ${o.item.time||'All day'}${o.completed?' · Completed':overdue?' · Overdue':''}`),el('p',M.repeatLabel(o.item),'tb-muted'));
+      if(o.item.body)row.append(el('p',o.item.body,'tb-detail'));
+      row.append(el('p',M.boardDate(o.item,o.date)?`On team board from ${formatDate(M.boardDate(o.item,o.date))}`:'On team board immediately','tb-muted'));
+      const edit=action(o.item.unit==='none'?'Edit':'Edit series',()=>openEditor(o.item));edit.dataset.write='';row.append(edit);
+      if(o.item.type==='task'&&!o.completed&&o.index===(o.item.index||0)){
+        const complete=action('✓ Complete',()=>finishTask(o.item));complete.dataset.write='';row.append(complete);
+      }else if(o.item.type==='task'&&!o.completed)row.append(el('p','Complete earlier occurrences first.','tb-muted'));
+      agenda.append(row);
+    }
+    controls();
+  }
+  function moveMonth(amount){
+    const d=new Date(calendarMonth+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+amount);
+    if(d.getUTCFullYear()<2000||d.getUTCFullYear()>2199)return;
+    calendarMonth=d.toISOString().slice(0,7);selectedDate=calendarMonth+'-01';renderCalendar();
   }
   function errorText(error){
     if(error.code==='permission-denied')return 'Team board permission was denied. Nothing was saved. Ask an administrator to check its shared-data permissions.';
@@ -77,12 +123,23 @@
     field('type').disabled=locked;
     for(const name of ['date','time','unit'])field(name).disabled=locked||note;
     for(const name of ['every','until'])field(name).disabled=locked||note||!repeat;
-    $('tb-edit-help').textContent=locked?'This task has completion history. You can edit its title and details. Create a new task to change the repeating schedule.':editing?.unit!=='none'&&editing?'Edits apply to the whole series.':'';
+    $('tb-monthly-details').hidden=field('unit').value!=='month';
+    field('monthlyMode').disabled=locked||note||field('unit').value!=='month';
+    field('boardLeadDays').disabled=note||field('boardVisibility').value==='immediate';
+    field('boardLeadDays').required=!field('boardLeadDays').disabled;
+    field('date').required=field('date').required||!note&&field('boardVisibility').value==='scheduled';
+    const date=field('date').value,mode=field('monthlyMode').value;
+    $('tb-monthly-help').textContent=date&&mode!=='date'?`Repeats on the ${M.monthlyLabel({date,monthlyMode:mode})} of each selected month.`:'Repeats on the same date; shorter months use their last day.';
+    const days=Number(field('boardLeadDays').value);
+    $('tb-display-help').textContent=!note&&field('boardVisibility').value==='scheduled'&&M.parseDate(date)!==null&&Number.isInteger(days)&&days>=0&&days<=365?`First shown ${formatDate(M.boardDate({boardLeadDays:days},date))}. This lead time repeats for every occurrence.`:'Choose when each occurrence first appears on the team board.';
+    $('tb-date-label').textContent=field('type').value==='task'?'First due date':'First event date';
+    $('tb-edit-help').textContent=locked?'This task has completion history. You can edit its title, details, and board display timing. Create a new task to change the repeating schedule.':editing?.unit!=='none'&&editing?'Edits apply to the whole series.':'';
   }
-  function openEditor(item=null,type='note'){
+  function openEditor(item=null,type='note',date=''){
     if(!canWrite())return;editing=item?{...item}:null;form.reset();$('tb-error').textContent='';
-    const values=item||{type,title:'',body:'',date:'',time:'',unit:'none',every:1,until:''};
+    const values=item||{type,title:'',body:'',date,time:'',unit:'none',every:1,until:''};
     for(const name of ['type','title','body','date','time','unit','every','until'])field(name).value=values[name];
+    field('monthlyMode').value=values.monthlyMode||'date';field('boardVisibility').value=values.boardLeadDays==null?'immediate':'scheduled';field('boardLeadDays').value=values.boardLeadDays??0;
     $('tb-dialog-title').textContent=item?'Edit team item':'Add team item';scheduleControls();dialog.showModal();field('title').focus();
   }
   async function submit(event){
@@ -90,6 +147,8 @@
     const value=name=>field(name).value;
     const note=value('type')==='note',unit=note?'none':value('unit');
     const data={type:value('type'),title:value('title').trim(),body:value('body').trim(),date:note?'':value('date'),time:note?'':value('time').trim().replace(':',''),unit,every:unit==='none'?1:Number(value('every')),until:unit==='none'?'':value('until')};
+    data.monthlyMode=unit==='month'?value('monthlyMode'):'date';
+    data.boardLeadDays=note||value('boardVisibility')==='immediate'?null:Number(value('boardLeadDays'));
     try{M.validate(data);}catch(error){$('tb-error').textContent=error.message;return;}
     if(editing){if(await mutate(editing,data,'Item updated.'))dialog.close();return;}
     const token=epoch,uid=user.uid;busy=true;controls();
@@ -109,6 +168,7 @@
   function revoke(text){
     approved=false;online=false;items=[];stopItems?.();stopItems=null;
     if(dialog.open)dialog.close();form.reset();editing=null;render();message(text);
+    if(calendar?.open){calendar.close();renderCalendar();}
   }
   function connect(){
     if(!window.firebase?.apps?.length||!firebase.firestore||!firebase.auth){setTimeout(connect,500);return;}
@@ -131,6 +191,19 @@
       },error=>{if(token===epoch)revoke(errorText(error));});
     });
   }
+  function installCalendar(home){
+    const css=el('link');css.rel='stylesheet';css.href='./schedule-calendar.css?v=9191';document.head.append(css);
+    const bar=el('div',undefined,'tb-home-schedule'),open=action('Schedule',()=>{calendar.showModal();renderCalendar();});
+    open.id='tb-open-schedule';open.setAttribute('aria-haspopup','dialog');bar.append(open);home.prepend(bar);
+    calendar=el('dialog');calendar.id='teamSchedule';calendar.setAttribute('aria-labelledby','tb-calendar-title');
+    calendar.innerHTML='<header class="tb-calendar-header"><div><h2 id="tb-calendar-title">Team schedule</h2><p class="tb-muted">Events & tasks · Pacific time</p></div><button type="button" id="tb-calendar-close">Close</button></header><div class="tb-calendar-nav"><button type="button" id="tb-prev-month" aria-label="Previous month">←</button><h3 id="tb-month-label" aria-live="polite"></h3><button type="button" id="tb-next-month" aria-label="Next month">→</button><button type="button" id="tb-calendar-today">Today</button></div><div id="tb-calendar-grid" aria-label="Calendar dates"></div><section class="tb-calendar-agenda"><div class="tb-calendar-header"><h3 id="tb-selected-label"></h3><div class="tb-calendar-add"><button type="button" data-write id="tb-calendar-event">+ Event</button><button type="button" data-write id="tb-calendar-task">+ Task</button></div></div><div id="tb-agenda" aria-live="polite"></div></section>';
+    document.body.append(calendar);
+    $('tb-calendar-close').addEventListener('click',()=>calendar.close());
+    $('tb-prev-month').addEventListener('click',()=>moveMonth(-1));$('tb-next-month').addEventListener('click',()=>moveMonth(1));
+    $('tb-calendar-today').addEventListener('click',()=>{selectedDate=M.today().date;calendarMonth=selectedDate.slice(0,7);renderCalendar();});
+    for(const type of ['event','task'])$('tb-calendar-'+type).addEventListener('click',()=>openEditor(null,type,selectedDate));
+    dialog.addEventListener('close',renderCalendar);
+  }
   function install(){
     const home=$('homeView');if(!home)return;
     const style=el('style');style.textContent=`
@@ -145,8 +218,9 @@
     home.append(host);for(const type of ['note','event','task']){const b=action('+ '+type[0].toUpperCase()+type.slice(1),()=>openEditor(null,type));b.dataset.write='';$('tb-add').append(b);}
     $('tb-filter').addEventListener('change',event=>{filter=event.target.value;render();});
     dialog=el('dialog');dialog.id='teamBoardEditor';dialog.setAttribute('aria-labelledby','tb-dialog-title');
-    dialog.innerHTML='<form id="tb-form"><h2 id="tb-dialog-title">Add team item</h2><label>Type<select name="type"><option value="note">Note</option><option value="event">Event</option><option value="task">Task</option></select></label><label>Title<input name="title" required maxlength="120"></label><label>Details<textarea name="body" rows="3" maxlength="5000"></textarea></label><fieldset id="tb-schedule"><legend>Schedule · Pacific time</legend><div class="tb-pair"><label>Date<input name="date" type="date" min="2000-01-01" max="2199-12-31"></label><label>Time (optional)<input name="time" inputmode="numeric" placeholder="1800" maxlength="5" pattern="([01][0-9]|2[0-3]):?[0-5][0-9]"></label></div><p class="tb-muted">Use military time, 0000–2359. Leave time blank for an all-day event or date-only task.</p><label>Repeat<select name="unit"><option value="none">Does not repeat</option><option value="day">Days</option><option value="week">Weeks</option><option value="month">Months</option></select></label><div id="tb-repeat-details"><div class="tb-pair"><label>Every<input name="every" type="number" min="1" max="365" value="1" step="1"></label><label>End date (optional)<input name="until" type="date" min="2000-01-01" max="2199-12-31"></label></div><p class="tb-muted">Repeats from the first date at the same Pacific time. Monthly dates use the last day when a month is shorter. Tasks stay overdue until each occurrence is checked off.</p></div></fieldset><p id="tb-edit-help" class="tb-muted"></p><p class="tb-muted">Shown in the planner only; no email or phone notifications.</p><p id="tb-error" role="alert"></p><div class="tb-footer"><button id="tb-close" type="button">Cancel</button><button id="tb-save" type="submit">Save for everyone</button></div></form>';
-    document.body.append(dialog);form=$('tb-form');form.addEventListener('submit',submit);field('type').addEventListener('change',scheduleControls);field('unit').addEventListener('change',scheduleControls);$('tb-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});
+    dialog.innerHTML='<form id="tb-form"><h2 id="tb-dialog-title">Add team item</h2><label>Type<select name="type"><option value="note">Note</option><option value="event">Event</option><option value="task">Task</option></select></label><label>Title<input name="title" required maxlength="120"></label><label>Details<textarea name="body" rows="3" maxlength="5000"></textarea></label><fieldset id="tb-schedule"><legend>Schedule · Pacific time</legend><div class="tb-pair"><label><span id="tb-date-label">First due date</span><input name="date" type="date" min="2000-01-01" max="2199-12-31"></label><label>Time (optional)<input name="time" inputmode="numeric" placeholder="1800" maxlength="5" pattern="([01][0-9]|2[0-3]):?[0-5][0-9]"></label></div><p class="tb-muted">Use military time, 0000–2359. Leave time blank for an all-day event or date-only task.</p><label>Repeat<select name="unit"><option value="none">Does not repeat</option><option value="day">Days</option><option value="week">Weeks</option><option value="month">Months</option></select></label><div id="tb-monthly-details"><label>Monthly pattern<select name="monthlyMode"><option value="date">Same date each month</option><option value="weekday">Same weekday and week (e.g. third Thursday)</option><option value="lastWeekday">Last weekday of the month</option></select></label><p id="tb-monthly-help" class="tb-muted"></p></div><div id="tb-repeat-details"><div class="tb-pair"><label>Every<input name="every" type="number" min="1" max="365" value="1" step="1"></label><label>End date (optional)<input name="until" type="date" min="2000-01-01" max="2199-12-31"></label></div><p class="tb-muted">Repeats from the first date at the same Pacific time. Monthly dates use the last day when a month is shorter. Tasks stay overdue until each occurrence is checked off.</p></div><label>Show on team board<select name="boardVisibility"><option value="immediate">Immediately</option><option value="scheduled">A set number of days before each occurrence</option></select></label><label>Days before due date or event<input name="boardLeadDays" type="number" min="0" max="365" step="1" value="0"></label><p id="tb-display-help" class="tb-muted"></p><p class="tb-muted">Example: ceiling cleaning due on the 7th, show 6 days before to appear on the 1st. An unfinished date-only task turns red and bold the day after its due date.</p></fieldset><p id="tb-edit-help" class="tb-muted"></p><p class="tb-muted">Shown in the planner only; no email or phone notifications.</p><p id="tb-error" role="alert"></p><div class="tb-footer"><button id="tb-close" type="button">Cancel</button><button id="tb-save" type="submit">Save for everyone</button></div></form>';
+    document.body.append(dialog);form=$('tb-form');form.addEventListener('submit',submit);field('type').addEventListener('change',scheduleControls);for(const name of ['unit','date','monthlyMode','boardVisibility','boardLeadDays'])field(name).addEventListener('input',scheduleControls);$('tb-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault();});
+    installCalendar(home);
     window.addEventListener('online',controls);window.addEventListener('offline',()=>{controls();message('Offline · reconnect to make changes.');});
     setInterval(()=>{if(!dialog.open)render();},60000);controls();connect();
   }
