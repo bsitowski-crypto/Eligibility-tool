@@ -226,3 +226,11 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
+(function(){
+  if(typeof document.querySelector!=='function')return;
+  if(document.querySelector('script[data-desktop-home]'))return;
+  const script=document.createElement('script');
+  script.src='./desktop-home.js?v=9192';
+  script.dataset.desktopHome='';
+  document.head.append(script);
+})();
