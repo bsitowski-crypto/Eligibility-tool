@@ -1,5 +1,7 @@
 (function(){
   "use strict";
+  if(window.__pdxDesktopHomeLoaded)return;
+  window.__pdxDesktopHomeLoaded=true;
   let installed=false;
 
   function addStyles(){
