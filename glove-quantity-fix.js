@@ -77,9 +77,10 @@
 
     const techs=[
       document.getElementById("tech1")?.value,
-      document.getElementById("tech2")?.value
+      document.getElementById("tech2")?.value,
+      ...(window.CasePersonnel?.personnel()||[]).filter(p=>p.role==="tech").map(p=>p.initials||p.name)
     ];
-    const lookup=typeof techGloveInfo==="function"?techGloveInfo:null;
+    const lookup=key=>{const p=(window.CasePersonnel?.personnel()||[]).find(p=>(p.initials||p.name)===key);return p?window.CasePersonnel.info(p):techGloveInfo(key)};
     adjustItems(items,recovery,techs,lookup);
     renderCurrent(items);
   }
