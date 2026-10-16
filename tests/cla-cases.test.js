@@ -45,7 +45,8 @@ test('pending Home cards show CLA and safely escaped OR text in place of timing'
 test('planner saves and loads CLA details and starts its script before status handlers',()=>{
  assert.match(html,/window\.PendingCLA\?\.capture\(d\)/);assert.match(html,/window\.PendingCLA\?\.load\(d\)/);assert.match(html,/window\.PendingCLA\?\.render\(\)/);
  const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
- assert.ok(loader.indexOf('cla-cases.js?v=9207')<loader.indexOf('simple-status.js?v=9207'));
+ assert.ok(loader.indexOf('cla-cases.js?v=')>=0);
+ assert.ok(loader.indexOf('cla-cases.js?v=')<loader.indexOf('simple-status.js?v='));
  assert.match(fs.readFileSync(path.join(root,'sw.js'),'utf8'),/cla-cases\.js\?v=9207/);
  const simple=fs.readFileSync(path.join(root,'simple-status.js'),'utf8');assert.match(simple,/requestActivation\(d,status\)/);
  assert.match(source,/stopImmediatePropagation/);assert.doesNotMatch(source,/type="time"|type="datetime-local"/);

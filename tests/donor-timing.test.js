@@ -40,3 +40,19 @@ test('home cards show full escaped case notes for pending and active donors',()=
     assert.ok(h.board.innerHTML.includes('CASE NOTES'));
   }
 });
+test('medical notes appear in full beside case notes for pending, active and completed donors',()=>{
+  for(const status of ['pending','active','complete']){
+    const medical='Medical history line.\n'.repeat(35)+'<img src=x onerror=bad()>',caseNotes='Case notes stay editable',h=harness([{id:'one',status,medicalNotes:medical,caseNotes}]);
+    h.renderSimpleBoard();const html=h.board.innerHTML;
+    assert.match(html,/class="priority-notes-row"/);
+    assert.ok(html.includes('Medical history line.\n'.repeat(35)));
+    assert.ok(html.includes('&lt;img src=x onerror=bad()&gt;'));
+    assert.ok(!html.includes('<img src=x'));
+    assert.ok(html.indexOf('CASE NOTES')<html.indexOf('MEDICAL NOTES'));
+    assert.ok(html.includes(caseNotes));assert.ok(html.includes('data-edit-notes="one"'));
+    assert.equal((html.match(/MEDICAL NOTES/g)||[]).length,1);
+  }
+  assert.doesNotMatch(source,/notes\.slice\(0,220\)|-webkit-line-clamp/);
+  assert.match(source,/priority-notes-row\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(source,/@media\(max-width:700px\)\{\.priority-notes-row\{grid-template-columns:minmax\(0,1fr\)/);
+});

@@ -7,6 +7,10 @@
     const draft=noteDrafts.get(d.id),editing=draft&&draft.owner===noteOwner(),notes=String(d.caseNotes||"");
     return `<section class="priority-notes" data-notes-id="${esc(d.id)}"><div class="priority-notes-head"><strong>CASE NOTES</strong>${editing?"":`<button type="button" data-edit-notes="${esc(d.id)}">${notes?"Edit":"Add"} notes</button>`}</div>${editing?`<textarea aria-label="Case notes" data-note-input="${esc(d.id)}" ${draft.busy?"disabled":""}>${esc(draft.text)}</textarea><div class="priority-notes-buttons"><button type="button" data-cancel-notes="${esc(d.id)}" ${draft.busy?"disabled":""}>Cancel</button><button type="button" class="primary" data-save-notes="${esc(d.id)}" ${draft.busy?"disabled":""}>${draft.busy?"Saving…":"Save notes"}</button></div><div role="status">${esc(draft.error||"")}</div>`:`<div class="priority-note-text">${notes?esc(notes):"No case notes yet."}</div>`}</section>`;
   }
+  function donorNotesHtml(d){
+    const medical=String(d.medicalNotes||"");
+    return `<div class="priority-notes-row">${notesHtml(d)}<section class="priority-notes priority-medical-notes" aria-label="Medical notes"><div class="priority-notes-head"><strong>MEDICAL NOTES</strong></div><div class="priority-note-text">${medical?esc(medical):"No medical notes yet."}</div></section></div>`;
+  }
   async function noteAction(event){
     const button=event.target.closest?.('[data-edit-notes],[data-cancel-notes],[data-save-notes]');if(!button)return;
     event.preventDefault();event.stopPropagation();
@@ -74,9 +78,9 @@
     });
   }
   function cardHtml(d){
-    const team=teamText(d),notes=d.status==="pending"?(d.medicalNotes||""):"",t=timingFor(d);
+    const team=teamText(d),t=timingFor(d);
     const pendingInfo=d.status==="pending"?`<div class="kv"><strong>Authorization:</strong> ${d.authorizationComplete?"Complete":"Pending"} · <strong>Records:</strong> ${d.medicalRecordsReviewed?"Reviewed":"Pending"}</div>`:`<div class="kv"><strong>Recovery:</strong> ${esc(recPreview(d))}</div>`;
-    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${d.status==="complete"?`<div class="priority-complete-summary"><strong>COMPLETED</strong><div>${d.completedAt?esc(formatDeadline(new Date(d.completedAt))):"Recovery complete"}</div></div>`:window.PendingCLA?.isPending(d)?window.PendingCLA.cardHtml(d):timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><label class="priority-completed-check"><input type="checkbox" data-donor-completed="${esc(d.id)}"${d.status==="complete"?" checked":""}> Completed</label><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
+    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${d.status==="complete"?`<div class="priority-complete-summary"><strong>COMPLETED</strong><div>${d.completedAt?esc(formatDeadline(new Date(d.completedAt))):"Recovery complete"}</div></div>`:window.PendingCLA?.isPending(d)?window.PendingCLA.cardHtml(d):timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}</div><div class="actions"><label class="priority-completed-check"><input type="checkbox" data-donor-completed="${esc(d.id)}"${d.status==="complete"?" checked":""}> Completed</label><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
   }
   function refreshBoard(){if(installed&&typeof window.renderBoard==="function")window.renderBoard();else renderSimpleBoard();}
   function renderSimpleBoard(){
@@ -94,7 +98,7 @@
     const activeCount=rows.filter(d=>d.status==="active").length;
     const completeCount=rows.filter(d=>d.status==="complete").length;
     const focused=document.activeElement,noteId=focused?.dataset?.noteInput,selection=noteId?[focused.selectionStart,focused.selectionEnd]:null;
-    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS (${rows.length})</div><div class="priority-board-summary">${completeCount} Completed · ${pendingCount} Pending · ${activeCount} Active · Completed first; remaining donors by earliest time out</div><div class="grid priority-board-grid">${rows.map(d=>cardHtml(d).replace(/<\/div>$/,notesHtml(d)+"</div>")).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
+    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS (${rows.length})</div><div class="priority-board-summary">${completeCount} Completed · ${pendingCount} Pending · ${activeCount} Active · Completed first; remaining donors by earliest time out</div><div class="grid priority-board-grid">${rows.map(d=>cardHtml(d).replace(/<\/div>$/,donorNotesHtml(d)+"</div>")).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
     if(noteId){const input=[...b.querySelectorAll('[data-note-input]')].find(n=>n.dataset.noteInput===noteId);if(input&&!input.disabled){input.focus();input.setSelectionRange(...selection);}}
     try{if(typeof bindDonorOpenButtons==="function")bindDonorOpenButtons()}catch{}
     refreshDeadlineLabels();
@@ -135,7 +139,8 @@
     migrate();simplifySelect();window.renderBoard=renderSimpleBoard;replaceRestore();replaceUpdateStatus();
     const style=document.createElement("style");style.id="simpleStatusStyle";style.textContent=`
       body>main{max-width:none;padding-left:20px;padding-right:20px}header>.head{max-width:none}
-      .priority-notes{grid-area:notes;border-top:1px solid #dce3eb;background:#f7f9fc;margin-top:12px;padding:14px 2px 4px;min-width:0}
+      .priority-notes-row{grid-area:notes;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;min-width:0}
+      .priority-notes{border-top:1px solid #dce3eb;background:#f7f9fc;margin-top:12px;padding:14px 2px 4px;min-width:0}
       .priority-notes-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px;font-size:14px}
       .priority-note-text{font-size:16px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;min-height:50px}
       .priority-notes textarea{width:100%;min-height:112px;box-sizing:border-box;font-size:16px;line-height:1.5;resize:vertical}
@@ -158,7 +163,6 @@
       .priority-start-value{font-weight:650;font-variant-numeric:tabular-nums}
       .priority-time-relative{margin-top:3px;color:#626874;font-size:11px;font-weight:750}
       .priority-details{grid-area:details;align-self:center;min-width:0}
-      .priority-details .note{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:6px;padding:6px}
       .priority-card>.transport-card-safe{grid-area:transport;align-self:center;margin:0;padding:7px 8px}
       .priority-card>.transport-card-safe button{padding:6px!important;margin-top:5px!important}
       .priority-card>.actions{grid-area:actions;align-self:center;display:flex;flex-direction:column;justify-content:center;gap:5px;margin-top:0}
@@ -170,13 +174,12 @@
         .priority-time{padding:10px}
         .priority-time-value{font-size:20px}
         .priority-details{align-self:start}
-        .priority-details .note{display:block;overflow:visible;margin-top:8px;padding:8px}
         .priority-card>.transport-card-safe{align-self:stretch;margin-top:0;padding:9px 10px}
         .priority-card>.transport-card-safe button{padding:9px!important;margin-top:7px!important}
         .priority-card>.actions{display:grid;grid-template-columns:minmax(0,1fr);gap:7px}
         .priority-card>.actions button{padding:9px}
       }
-      @media(max-width:700px){body>main{padding-left:12px;padding-right:12px}.priority-notes button{min-height:44px}}
+      @media(max-width:700px){.priority-notes-row{grid-template-columns:minmax(0,1fr);gap:0}body>main{padding-left:12px;padding-right:12px}.priority-notes button{min-height:44px}}
     `;document.head.appendChild(style);
     document.addEventListener("click",noteAction,true);
     document.addEventListener("change",event=>{
