@@ -94,9 +94,24 @@
   }
 
   function byId(id){return document.getElementById(id)}
-  function value(id){return String(byId(id)?.value||"").trim()}
+  function value(id){
+    if(id==="mePreDropoffDateTime"||id==="mePostConfirmationDateTime"){
+      const date=byId(id+"Date")?.value||"",raw=String(byId(id+"Time")?.value||"").trim();
+      const time=/^([01]\d|2[0-3]):?[0-5]\d$/.test(raw)?raw.replace(":",""):"";
+      return date&&time?date+"T"+time.slice(0,2)+":"+time.slice(2):"";
+    }
+    return String(byId(id)?.value||"").trim();
+  }
   function checked(id){return !!byId(id)?.checked}
-  function setValue(id,next){const node=byId(id);if(node)node.value=next??""}
+  function setValue(id,next){
+    if(id==="mePreDropoffDateTime"||id==="mePostConfirmationDateTime"){
+      const [date,time=""]=String(next||"").split("T");
+      if(byId(id+"Date"))byId(id+"Date").value=date;
+      if(byId(id+"Time"))byId(id+"Time").value=time.slice(0,5).replace(":","");
+      return;
+    }
+    const node=byId(id);if(node)node.value=next??"";
+  }
   function setChecked(id,next){const node=byId(id);if(node)node.checked=!!next}
   function show(id,visible){byId(id)?.classList.toggle("hidden",!visible)}
   let meDetailsCollapsed=true;
@@ -441,7 +456,7 @@
               <div class="fg"><label for="mePreDocumented">Pickup confirmation recorded in the case documentation?</label><select id="mePreDocumented">${yesNoOptions()}</select></div>
               <div class="fg"><label for="mePreDropoffConfirmed">Drop-off time confirmed with SMEO?</label><select id="mePreDropoffConfirmed">${yesNoOptions()}</select></div>
             </div>
-            <div class="fg"><label for="mePreDropoffDateTime">Confirmed drop-off date and time</label><input id="mePreDropoffDateTime" type="datetime-local"></div>
+            <div class="fg"><label for="mePreDropoffDateTimeDate">Confirmed drop-off date</label><input id="mePreDropoffDateTimeDate" type="date"></div><div class="fg"><label for="mePreDropoffDateTimeTime">Confirmed drop-off time (military)</label><input id="mePreDropoffDateTimeTime" type="text" inputmode="numeric" maxlength="5" placeholder="HHMM" pattern="([01][0-9]|2[0-3]):?[0-5][0-9]" title="Military time, 0000–2359"></div>
           </div>
 
           <div id="mePostAutopsyWrap" class="hidden">
@@ -449,7 +464,7 @@
               <div class="fg"><label for="mePostReadyConfirmed">Has SMEO confirmed the decedent is ready for pickup?</label><select id="mePostReadyConfirmed">${yesNoOptions()}</select></div>
               <div class="fg"><label for="mePostContact">Confirmation contact</label><input id="mePostContact"></div>
             </div>
-            <div class="fg"><label for="mePostConfirmationDateTime">Confirmation date and time</label><input id="mePostConfirmationDateTime" type="datetime-local"></div>
+            <div class="fg"><label for="mePostConfirmationDateTimeDate">Confirmation date</label><input id="mePostConfirmationDateTimeDate" type="date"></div><div class="fg"><label for="mePostConfirmationDateTimeTime">Confirmation time (military)</label><input id="mePostConfirmationDateTimeTime" type="text" inputmode="numeric" maxlength="5" placeholder="HHMM" pattern="([01][0-9]|2[0-3]):?[0-5][0-9]" title="Military time, 0000–2359"></div>
           </div>
         </div>
 

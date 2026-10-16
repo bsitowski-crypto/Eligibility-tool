@@ -96,7 +96,8 @@ test("desktop sidebar exposes the existing tools menu",()=>{
   const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8");
   const index=read("index.html"),cache=read("sw.js"),desktop=read("desktop-home.js"),ui=read("planner-tools.js");
-  assert.ok(index.includes("desktop-home.js?v=9194"));assert.ok(cache.includes('"./desktop-home.js?v=9194"'));
+  const desktopScript=index.match(/desktop-home\.js\?v=\d+/)?.[0];
+  assert.ok(desktopScript);assert.ok(cache.includes('"./'+desktopScript+'"'));
   assert.ok(desktop.includes("window.__pdxDesktopHomeLoaded=true"));
   assert.ok(desktop.includes('id="desktopToolsButton"'));assert.ok(desktop.includes("PDXPlannerTools?.toggle"));assert.ok(desktop.includes("toggleToolsFallback"));
   assert.ok(ui.includes('document.getElementById("desktopToolsButton")'));assert.ok(ui.includes("window.PDXPlannerTools={toggle:togglePanel"));

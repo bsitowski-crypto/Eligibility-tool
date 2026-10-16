@@ -49,7 +49,7 @@
     try{
       const snap=await db.collection("activityLogs").orderBy("createdAt","desc").limit(50).get();
       if(snap.empty){list.innerHTML='<div class="collab-note">No activity has been recorded yet.</div>';return}
-      list.innerHTML="";snap.forEach(doc=>{const d=doc.data()||{};const row=document.createElement("div");row.className="activity-row";const when=d.createdAt&&d.createdAt.toDate?d.createdAt.toDate().toLocaleString():"Just now";row.innerHTML='<div class="activity-main"></div><div class="activity-meta"></div>';row.querySelector(".activity-main").textContent=safeText(d.action||"Updated donor")+" — "+safeText(d.donorLabel||d.donorId||"");row.querySelector(".activity-meta").textContent=safeText(d.userEmail||"Unknown user")+" • "+when;list.appendChild(row)});
+      list.innerHTML="";snap.forEach(doc=>{const d=doc.data()||{};const row=document.createElement("div");row.className="activity-row";const when=d.createdAt&&d.createdAt.toDate?d.createdAt.toDate().toLocaleString("en-US",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}):"Just now";row.innerHTML='<div class="activity-main"></div><div class="activity-meta"></div>';row.querySelector(".activity-main").textContent=safeText(d.action||"Updated donor")+" — "+safeText(d.donorLabel||d.donorId||"");row.querySelector(".activity-meta").textContent=safeText(d.userEmail||"Unknown user")+" • "+when;list.appendChild(row)});
     }catch(err){list.textContent="Unable to load activity: "+(err.message||err)}
   }
 

@@ -35,7 +35,7 @@
     if(!host)return;
     const b=document.createElement("button");b.id="f_active";b.type="button";b.className="chip active";b.textContent="Active";b.style.display="none";b.setAttribute("aria-hidden","true");host.appendChild(b);
   }
-  function migrate(){let changed=false;for(const d of allDonors()){if(d.status!=="pending"&&d.status!=="archived"&&d.status!=="active"){d.status="active";changed=true}}if(changed)persist()}
+  function migrate(){let changed=false;for(const d of allDonors()){if(d.status!=="pending"&&d.status!=="archived"&&d.status!=="active"&&d.status!=="complete"){d.status="active";changed=true}}if(changed)persist()}
   function donorLabel(){return "PDX DONOR"}
   function demoSafe(d){try{return typeof demo==="function"?demo(d):`${d.age||"?"} ${d.sex==="female"?"F":"M"}`}catch{return""}}
   function teamText(d){return[d.circulator,d.tech1,d.tech2].filter(Boolean).join(" / ")}
@@ -76,12 +76,15 @@
   function cardHtml(d){
     const team=teamText(d),notes=d.status==="pending"?(d.medicalNotes||""):"",t=timingFor(d);
     const pendingInfo=d.status==="pending"?`<div class="kv"><strong>Authorization:</strong> ${d.authorizationComplete?"Complete":"Pending"} · <strong>Records:</strong> ${d.medicalRecordsReviewed?"Reviewed":"Pending"}</div>`:`<div class="kv"><strong>Recovery:</strong> ${esc(recPreview(d))}</div>`;
-    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
+    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${d.status==="complete"?`<div class="priority-complete-summary"><strong>COMPLETED</strong><div>${d.completedAt?esc(formatDeadline(new Date(d.completedAt))):"Recovery complete"}</div></div>`:timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><label class="priority-completed-check"><input type="checkbox" data-donor-completed="${esc(d.id)}"${d.status==="complete"?" checked":""}> Completed</label><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
   }
+  function refreshBoard(){if(installed&&typeof window.renderBoard==="function")window.renderBoard();else renderSimpleBoard();}
   function renderSimpleBoard(){
     const b=document.getElementById("board");if(!b)return;
-    let pendingOn=true,activeOn=true;try{pendingOn=filters.pending!==false;activeOn=filters.active!==false}catch{}
-    const rows=allDonors().filter(d=>(d.status==="pending"&&pendingOn)||(d.status==="active"&&activeOn)).sort((a,b)=>{
+    let pendingOn=true,activeOn=true,completeOn=true;try{pendingOn=filters.pending!==false;activeOn=filters.active!==false;completeOn=filters.complete!==false}catch{}
+    const rows=allDonors().filter(d=>(d.status==="pending"&&pendingOn)||(d.status==="active"&&activeOn)||(d.status==="complete"&&completeOn)).sort((a,b)=>{
+      if((a.status==="complete")!==(b.status==="complete"))return a.status==="complete"?-1:1;
+      if(a.status==="complete")return (Date.parse(b.completedAt)||0)-(Date.parse(a.completedAt)||0)||String(a.id).localeCompare(String(b.id));
       const difference=deadlineTime(a)-deadlineTime(b);
       if(Number.isFinite(difference)&&difference!==0)return difference;
       if(deadlineTime(a)!==deadlineTime(b))return deadlineTime(a)-deadlineTime(b);
@@ -89,8 +92,9 @@
     });
     const pendingCount=rows.filter(d=>d.status==="pending").length;
     const activeCount=rows.filter(d=>d.status==="active").length;
+    const completeCount=rows.filter(d=>d.status==="complete").length;
     const focused=document.activeElement,noteId=focused?.dataset?.noteInput,selection=noteId?[focused.selectionStart,focused.selectionEnd]:null;
-    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS BY TIME OUT (${rows.length})</div><div class="priority-board-summary">${pendingCount} Pending · ${activeCount} Active · Earliest time out first</div><div class="grid priority-board-grid">${rows.map(d=>cardHtml(d).replace(/<\/div>$/,notesHtml(d)+"</div>")).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
+    b.innerHTML=`<div class="section priority-board"><div class="sectiontitle">DONORS (${rows.length})</div><div class="priority-board-summary">${completeCount} Completed · ${pendingCount} Pending · ${activeCount} Active · Completed first; remaining donors by earliest time out</div><div class="grid priority-board-grid">${rows.map(d=>cardHtml(d).replace(/<\/div>$/,notesHtml(d)+"</div>")).join("")||'<div class="priority-board-empty">No donors match the selected filters.</div>'}</div></div>`;
     if(noteId){const input=[...b.querySelectorAll('[data-note-input]')].find(n=>n.dataset.noteInput===noteId);if(input&&!input.disabled){input.focus();input.setSelectionRange(...selection);}}
     try{if(typeof bindDonorOpenButtons==="function")bindDonorOpenButtons()}catch{}
     refreshDeadlineLabels();
@@ -101,14 +105,28 @@
     if(p){p.textContent="Pending";p.setAttribute("onclick","toggleSimpleStatusFilter('pending')");try{p.classList.toggle("on",filters.pending!==false)}catch{}}
     if(a){a.textContent="Active";a.className="chip active"+(function(){try{return filters.active!==false?" on":""}catch{return" on"}})();a.setAttribute("onclick","toggleSimpleStatusFilter('active')")}
     if(hiddenA)hiddenA.style.display="none";
-    if(ip)ip.style.display="none";if(c)c.style.display="none";
+    if(ip)ip.style.display="none";
+    if(c){c.style.display="";c.textContent="Completed";c.setAttribute("onclick","toggleSimpleStatusFilter('complete')");try{c.classList.toggle("on",filters.complete!==false)}catch{}}
   }
-  window.toggleSimpleStatusFilter=function(s){try{if(typeof filters!=="object")return;filters[s]=filters[s]===false;persist();renderSimpleBoard()}catch{}};
-  function setStatus(id,status){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status=status;if(status==="active"&&!d.actualStart)d.actualStart=null;persist();renderSimpleBoard()}
-  function archive(id){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status="archived";d.archivedAt=new Date().toISOString();persist();renderSimpleBoard()}
-  function simplifySelect(){const s=document.getElementById("status");if(!s)return;s.innerHTML='<option value="pending">Pending</option><option value="active">Active</option>';let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(d)s.value=d.status==="pending"?"pending":"active"}
+  window.toggleSimpleStatusFilter=function(s){try{if(typeof filters!=="object")return;filters[s]=filters[s]===false;persist();refreshBoard()}catch{}};
+  function setStatus(id,status){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status=status;if(status==="active"&&!d.actualStart)d.actualStart=null;persist();refreshBoard()}
+  function setCompleted(id,checked){
+    const d=allDonors().find(x=>String(x.id)===String(id));if(!d||d.status==="archived")return;
+    if(checked&&d.status!=="complete"){
+      d.statusBeforeComplete=d.status==="pending"?"pending":"active";
+      d.status="complete";d.completedAt=new Date().toISOString();
+      try{filters.complete=true}catch{}
+    }else if(!checked&&d.status==="complete"){
+      d.status=d.statusBeforeComplete==="pending"?"pending":"active";
+      d.completedAt=null;delete d.statusBeforeComplete;
+    }else return;
+    if(typeof cur==="function"&&cur()?.id===d.id){const select=document.getElementById("status");if(select)select.value=d.status;}
+    persist();refreshBoard();
+  }
+  function archive(id){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status="archived";d.archivedAt=new Date().toISOString();persist();refreshBoard()}
+  function simplifySelect(){const s=document.getElementById("status");if(!s)return;s.innerHTML='<option value="pending">Pending</option><option value="active">Active</option><option value="complete">Complete</option>';let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(d)s.value=d.status==="pending"?"pending":d.status==="complete"?"complete":"active"}
   function replaceRestore(){window.restore=function(id){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status="active";d.archivedAt=null;persist();try{if(typeof renderArchive==="function")renderArchive()}catch{};try{renderSimpleBoard()}catch{}}}
-  function replaceUpdateStatus(){window.updateStatus=function(){let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;const el=document.getElementById("statusSummary"),s=document.getElementById("status")?.value||d.status;if(!el)return;el.className="status "+(s==="pending"?"pending":"active");el.innerHTML=s==="pending"?"<strong>PENDING</strong><br>Potential donor under review.":"<strong>ACTIVE</strong><br>Donor case is active."}}
+  function replaceUpdateStatus(){window.updateStatus=function(){let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;const el=document.getElementById("statusSummary"),s=document.getElementById("status")?.value||d.status;if(!el)return;el.className="status "+(s==="pending"?"pending":s==="complete"?"complete":"active");el.innerHTML=s==="pending"?"<strong>PENDING</strong><br>Potential donor under review.":s==="complete"?"<strong>COMPLETE</strong><br>Recovery complete. Archive after transport to the funeral home.":"<strong>ACTIVE</strong><br>Donor case is active."}}
   function install(){if(installed)return true;if(typeof window.renderBoard!=="function"||!document.getElementById("status"))return false;
     ensureActiveFilterAnchor();
     try{filters.active=filters.active!==false}catch{}
@@ -121,6 +139,8 @@
       .priority-notes textarea{width:100%;min-height:112px;box-sizing:border-box;font-size:16px;line-height:1.5;resize:vertical}
       .priority-notes-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}.priority-notes [role=status]{color:#9c2839;font-size:14px}
       .pill.active{background:#2e8b57}.status.active{background:#eef8f2;border-left-color:#2e8b57}.chip.active.on{background:#2e8b57;color:#fff}.donor.active{border-left-color:#2e8b57;background:#fff}
+      .priority-completed-check{display:flex;align-items:center;gap:8px;min-height:44px;font-weight:750;cursor:pointer}.priority-completed-check input{width:20px;height:20px;accent-color:#536779}
+      .donor.complete.priority-card{background:#e9eef2;border-left-color:#536779;opacity:1}.donor.complete .priority-notes{background:transparent}.priority-complete-summary{padding:12px;border:1px solid #c4cfd8;border-radius:10px;color:#3e5264}.priority-complete-summary div{margin-top:5px;font-size:13px}
       .priority-board-summary{margin:-4px 0 10px;color:var(--sub);font-size:12px;font-weight:650}
       .priority-board-grid{grid-template-columns:minmax(0,1fr)!important;gap:12px}
       .priority-board-empty{padding:20px;border:1px dashed var(--bd);border-radius:12px;background:#fff;color:var(--sub);text-align:center}
@@ -157,9 +177,20 @@
       @media(max-width:700px){body>main{padding-left:12px;padding-right:12px}.priority-notes button{min-height:44px}}
     `;document.head.appendChild(style);
     document.addEventListener("click",noteAction,true);
+    document.addEventListener("change",event=>{
+      const id=event.target.dataset?.donorCompleted;
+      if(id){event.stopPropagation();setCompleted(id,event.target.checked);return;}
+      // Capture the previous status before the base form snapshots its selection.
+      if(event.target.id==="status"&&typeof cur==="function"){
+        const d=cur();if(!d)return;
+        if(event.target.value==="complete")setCompleted(d.id,true);
+        else if(d.status==="complete"){d.completedAt=null;delete d.statusBeforeComplete;}
+      }
+    },true);
     document.addEventListener("input",event=>{const id=event.target.dataset?.noteInput,draft=noteDrafts.get(id);if(draft&&draft.owner===noteOwner())draft.text=event.target.value;});
     document.addEventListener("click",e=>{const s=e.target.closest?.("[data-simple-status][data-donor-id]");if(s){e.preventDefault();setStatus(s.dataset.donorId,s.dataset.simpleStatus);return}const a=e.target.closest?.("[data-simple-archive]");if(a){e.preventDefault();archive(a.dataset.simpleArchive)}},false);
-    const status=document.getElementById("status");status.addEventListener("change",()=>{let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;d.status=status.value==="pending"?"pending":"active";persist();replaceUpdateStatus();});
+    const status=document.getElementById("status");status.addEventListener("change",()=>{let d=null;try{d=typeof cur==="function"?cur():null}catch{};if(!d)return;if(status.value==="complete"){setCompleted(d.id,true);}
+      else{if(d.status==="complete"){d.completedAt=null;delete d.statusBeforeComplete;}d.status=status.value==="pending"?"pending":"active";persist();refreshBoard();}replaceUpdateStatus();});
     installed=true;renderSimpleBoard();return true}
   let tries=0;const timer=setInterval(()=>{tries++;if(install()||tries>60)clearInterval(timer)},200);
   setInterval(()=>{if(!installed)return;ensureActiveFilterAnchor();simplifySelect();refreshFilterUI()},1500);
