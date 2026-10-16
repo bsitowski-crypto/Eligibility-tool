@@ -76,7 +76,7 @@
   function cardHtml(d){
     const team=teamText(d),notes=d.status==="pending"?(d.medicalNotes||""):"",t=timingFor(d);
     const pendingInfo=d.status==="pending"?`<div class="kv"><strong>Authorization:</strong> ${d.authorizationComplete?"Complete":"Pending"} · <strong>Records:</strong> ${d.medicalRecordsReviewed?"Reviewed":"Pending"}</div>`:`<div class="kv"><strong>Recovery:</strong> ${esc(recPreview(d))}</div>`;
-    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${d.status==="complete"?`<div class="priority-complete-summary"><strong>COMPLETED</strong><div>${d.completedAt?esc(formatDeadline(new Date(d.completedAt))):"Recovery complete"}</div></div>`:timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><label class="priority-completed-check"><input type="checkbox" data-donor-completed="${esc(d.id)}"${d.status==="complete"?" checked":""}> Completed</label><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
+    return `<div class="donor ${d.status} priority-card"><div class="priority-identity"><div class="name">${donorLabel()}</div><div class="demo">${esc(demoSafe(d))}</div><span class="pill ${d.status}">${d.status.toUpperCase()}</span></div><div class="priority-timing">${d.status==="complete"?`<div class="priority-complete-summary"><strong>COMPLETED</strong><div>${d.completedAt?esc(formatDeadline(new Date(d.completedAt))):"Recovery complete"}</div></div>`:window.PendingCLA?.isPending(d)?window.PendingCLA.cardHtml(d):timingBox(t)}</div><div class="priority-details"><div class="kv"><strong>Team:</strong> ${esc(d.caseTeam||"Not assigned")}${team?` — ${esc(team)}`:""}</div><div class="kv"><strong>Pickup:</strong> ${esc(pickupText(d))}</div>${pendingInfo}${notes?`<div class="note">${esc(notes.slice(0,220))}${notes.length>220?"…":""}</div>`:""}</div><div class="actions"><label class="priority-completed-check"><input type="checkbox" data-donor-completed="${esc(d.id)}"${d.status==="complete"?" checked":""}> Completed</label><button class="primary donor-open-btn" data-donor-id="${esc(d.id)}">OPEN DONOR</button>${d.status==="pending"?`<button type="button" data-simple-status="active" data-donor-id="${esc(d.id)}">MAKE ACTIVE</button>`:""}<button type="button" data-simple-archive="${esc(d.id)}">ARCHIVE</button></div></div>`;
   }
   function refreshBoard(){if(installed&&typeof window.renderBoard==="function")window.renderBoard();else renderSimpleBoard();}
   function renderSimpleBoard(){
@@ -109,7 +109,7 @@
     if(c){c.style.display="";c.textContent="Completed";c.setAttribute("onclick","toggleSimpleStatusFilter('complete')");try{c.classList.toggle("on",filters.complete!==false)}catch{}}
   }
   window.toggleSimpleStatusFilter=function(s){try{if(typeof filters!=="object")return;filters[s]=filters[s]===false;persist();refreshBoard()}catch{}};
-  function setStatus(id,status){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;d.status=status;if(status==="active"&&!d.actualStart)d.actualStart=null;persist();refreshBoard()}
+  function setStatus(id,status){const d=allDonors().find(x=>String(x.id)===String(id));if(!d)return;if(window.PendingCLA&&!window.PendingCLA.requestActivation(d,status))return;d.status=status;if(status==="active"&&!d.actualStart)d.actualStart=null;persist();refreshBoard()}
   function setCompleted(id,checked){
     const d=allDonors().find(x=>String(x.id)===String(id));if(!d||d.status==="archived")return;
     if(checked&&d.status!=="complete"){
@@ -117,7 +117,9 @@
       d.status="complete";d.completedAt=new Date().toISOString();
       try{filters.complete=true}catch{}
     }else if(!checked&&d.status==="complete"){
-      d.status=d.statusBeforeComplete==="pending"?"pending":"active";
+      const next=d.statusBeforeComplete==="pending"?"pending":"active";
+      if(window.PendingCLA&&!window.PendingCLA.requestActivation(d,next))return;
+      d.status=next;
       d.completedAt=null;delete d.statusBeforeComplete;
     }else return;
     if(typeof cur==="function"&&cur()?.id===d.id){const select=document.getElementById("status");if(select)select.value=d.status;}
