@@ -55,7 +55,7 @@
 
     const donorRow=sections.flatMap(section=>section.rows).find(row=>/^Donor\s*:/i.test(row))||"";
     const donor=donorRow.replace(/^Donor\s*:\s*/i,"")||"Case document";
-    const data={donor,generated:new Date().toLocaleString(),sections,supplies};
+    const data={donor,generated:new Date().toLocaleString("en-US",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}),sections,supplies};
     if(window.PDXPlannerMascot?.markerForCurrent){
       data.mascot=window.PDXPlannerMascot.markerForCurrent(data);
     }

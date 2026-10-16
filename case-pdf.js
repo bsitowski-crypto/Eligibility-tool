@@ -304,7 +304,7 @@
     const mePinkHeader=rgb(248/255,216/255,225/255);
     const white=rgb(1,1,1);
     const donor=clean(data.donor||"Case document");
-    const generated=clean(data.generated||new Date().toLocaleString());
+    const generated=clean(data.generated||new Date().toLocaleString("en-US",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}));
     const sections=normalizeSections(data);
     const supplies=normalizeSupplies(data);
     const layout=chooseLayout(sections,supplies,fonts);
