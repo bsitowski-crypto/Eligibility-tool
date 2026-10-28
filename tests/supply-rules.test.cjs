@@ -75,7 +75,7 @@ test('additional techs receive nerve and heart glove extras once on each build',
 });
 test('loader activates only the consolidated supply rules',()=>{
   const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.equal((loader.match(/supply-rules\.js\?v=9209/g)||[]).length,1);
+  assert.equal((loader.match(/supply-rules\.js\?v=9211/g)||[]).length,1);
   for(const name of ['supply-name-fix','blade-culture-quantity-fix','glove-quantity-fix','supply-order-fix'])assert.ok(!loader.includes(name+'.js'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9209'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9211'));
 });
