@@ -696,27 +696,30 @@
 
   // One ordered calculation shared by the displayed list and printable list.
   // Start with fresh core items on every build; never accumulate glove extras.
-  function applyEyeDonorBlood(items,selection){
-    // Keep recovery blood separate from ME requests and replace our own rows
-    // on recalculation so switching options never accumulates tubes.
+  function applyEyeDonorBlood(items,selection="yes_eye_bank",organDonor="no"){
+    // Replace recovery-draw rows rather than accumulating them. ME specimen
+    // requests remain separate and never satisfy these recovery quantities.
     const output=(items||[]).filter(item=>!item.eyeDonorBlood);
-    if(selection!=="yes_we_send"&&selection!=="no_we_send")return output;
+    if(organDonor==="yes")return output;
+    const sending=selection==="yes_we_send"||selection==="no_we_send";
     const note="Recovery blood — additional to any ME specimen requirements";
     output.push(
-      {c:"Recovery Blood",n:"Tiger-Top Blood Tube",q:2,note,eyeDonorBlood:true},
-      {c:"Recovery Blood",n:"Red-Top Blood Tube",q:1,note,eyeDonorBlood:true}
+      {c:"Recovery Blood",n:"30 mL Sterile Syringe",q:1,note,eyeDonorBlood:true},
+      {c:"Recovery Blood",n:"16G Sterile Needle",q:1,note,eyeDonorBlood:true},
+      {c:"Recovery Blood",n:"Tiger-Top Blood Tube",q:sending?2:1,note,eyeDonorBlood:true}
     );
+    if(sending)output.push({c:"Recovery Blood",n:"Red-Top Blood Tube",q:1,note,eyeDonorBlood:true});
     return output;
   }
 
-  function calculate(items,recovery,staff={},eyeDonor="yes_eye_bank"){
+  function calculate(items,recovery,staff={},eyeDonor="yes_eye_bank",organDonor="no"){
     let output=root.PDXSupplyNameFix.normalizeItems(items,recovery);
     output=root.PDXBladeCultureFix.correctedItems(output,recovery);
     output=root.PDXSupplyOrder.applyBoneTrayRule(output,recovery);
     output=root.PDXSupplyOrder.applyCordClampRule(output,recovery);
     output=root.PDXSupplyOrder.applyNonBoneSupplyRules(output,recovery);
     output=root.PDXGloveQuantityFix.adjustItems(output,recovery,staff.techs,staff.lookup);
-    output=applyEyeDonorBlood(output,eyeDonor);
+    output=applyEyeDonorBlood(output,eyeDonor,organDonor);
     return root.PDXSupplyOrder.orderItems(output);
   }
 
@@ -735,7 +738,7 @@
 
   function finalize(recovery){
     if(typeof latestSupplyItems==="undefined"||!Array.isArray(latestSupplyItems))return;
-    const output=calculate(latestSupplyItems,recovery,staffContext(),document.getElementById("eyeDonor")?.value);
+    const output=calculate(latestSupplyItems,recovery,staffContext(),document.getElementById("eyeDonor")?.value,document.getElementById("organDonor")?.value);
     latestSupplyItems.splice(0,latestSupplyItems.length,...output);
     root.PDXSupplyOrder.render(output);
   }

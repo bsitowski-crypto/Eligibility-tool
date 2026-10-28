@@ -50,7 +50,7 @@ test('skin and adipose swabs survive adding bone/tendon grafts',()=>{
 test('representative cases retain established quantities apart from the two corrections',()=>{
   const cases=[[],allSkin,['humerus','fascia'],['heartArtivion'],['heartLeMaitre'],['nerves'],['nerves','saphLeMaitre'],['saphLeMaitre'],['heartLeMaitre','saphLeMaitre','femVeinLeMaitre','aiLeMaitre'],['cartilage','pericardium'],['kneeBlock'],['armBlock'],['adipose'],[...allSkin,'adipose'],pictured.selected,[...allSkin,'nerves','heartArtivion']];
   for(const selected of cases){
-    const r={selected,sides:[]},old=quantities(harness(true).build(r)),actual=quantities(harness().build(r));
+    const r={selected,sides:[]},old=quantities(harness(true).build(r)),actual=quantities(harness().build(r).filter(item=>!item.eyeDonorBlood));
     if(selected.includes('adipose')){
       for(const name of ['TSB','Thio']){const parts=old[name].split('/').map(Number);parts[1]--;old[name]=parts.join('/');}
       if(selected.some(id=>allSkin.includes(id)))old['Culture Swabs']=4;
@@ -75,7 +75,7 @@ test('additional techs receive nerve and heart glove extras once on each build',
 });
 test('loader activates only the consolidated supply rules',()=>{
   const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.equal((loader.match(/supply-rules\.js\?v=9211/g)||[]).length,1);
+  assert.equal((loader.match(/supply-rules\.js\?v=9212/g)||[]).length,1);
   for(const name of ['supply-name-fix','blade-culture-quantity-fix','glove-quantity-fix','supply-order-fix'])assert.ok(!loader.includes(name+'.js'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9211'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9212'));
 });
