@@ -295,13 +295,9 @@
 
   function cultureTotals(recovery){
     const totals={left:0,middle:0,right:0,total:0};
-    let countedAdipose=false;
+    // Adipose expands into four sites, including a separate site for each
+    // thigh. Each site contributes one TSB and one Thio, all in Middle.
     for(const graft of recoveredGrafts(recovery)){
-      // Recovery lists four adipose zones, but cultures use three tubes total.
-      if(graft.id==="adipose"){
-        if(!countedAdipose){totals.middle+=3;totals.total+=3;countedAdipose=true;}
-        continue;
-      }
       if(CULTURE_EXCLUSIONS.has(graft.processor.toLowerCase()))continue;
       const position=["left","middle","right"].includes(graft.position)?graft.position:"middle";
       totals[position]++;
@@ -348,7 +344,7 @@
       });
     }
     if(cultures.total){
-      const note="Left / Middle / Right; one tube per cultured graft; adipose three tubes total";
+      const note="Left / Middle / Right; one tube per cultured graft; adipose four sets total (including one per thigh)";
       output.push({c:"Culture Tubes",n:"TSB",q:cultures.quantity,note});
       output.push({c:"Culture Tubes",n:"Thio",q:cultures.quantity,note});
     }
@@ -526,16 +522,20 @@
     if(!Array.isArray(items))return items;
     const ids=recoveryIds(recovery);
     const hasBoneOrTendon=ids.some(id=>BONE_TENDON_IDS.has(id));
+    const hasMs=hasBoneOrTendon||ids.includes("fascia")||ids.includes("pericardium");
+    const needsFtSkinKit=!hasMs&&ids.some(id=>SKIN_IDS.has(id));
     const needsSkinBags=!hasBoneOrTendon&&[...SKIN_IDS].every(id=>ids.includes(id));
     const hasSolvitaGraft=hasBoneOrTendon||ids.some(id=>SKIN_IDS.has(id)||id==="fascia"||id==="pericardium");
     const needsHeartSetup=!hasSolvitaGraft&&ids.some(id=>HEART_IDS.has(id));
     const output=items.filter(item=>{
       const name=key(item?.n);
+      if(name==="ft skin kit"||name==="full thickness skin kit")return false;
       if(!hasBoneOrTendon&&(/^(gown|gowns)( sterile)?$/.test(name)||/^or towels?$/.test(name)))return false;
       if(needsSkinBags&&/^sterile bags?$/.test(name))return false;
       if(needsHeartSetup&&/^(u drapes?|sterile trays?)$/.test(name))return false;
       return true;
     }).map(item=>Object.assign({},item));
+    if(needsFtSkinKit)output.push({c:"Recovery Kits",n:"FT Skin Kit",q:1,note:"Skin recovery without MS grafts"});
     if(needsSkinBags)output.push({c:"Solvita",n:"Sterile Bags",q:1,note:"1 pack; all three skin zones without bone or tendon recovery"});
     if(needsHeartSetup){
       const note="Heart recovery without Solvita grafts";

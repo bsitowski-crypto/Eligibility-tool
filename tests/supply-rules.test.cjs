@@ -32,29 +32,30 @@ function harness(legacy=false,additional=[]){
 const quantities=items=>Object.fromEntries(items.map(i=>[i.n,i.q]));
 test('pictured case has corrected cultures, four swabs and unchanged blades/gloves/kits',()=>{
   const h=harness(),items=h.build(pictured),q=quantities(items);
-  assert.equal(q.TSB,'9/6/9');assert.equal(q.Thio,'9/6/9');assert.equal(q.RPMI,3);
+  assert.equal(q.TSB,'9/7/9');assert.equal(q.Thio,'9/7/9');assert.equal(q.RPMI,3);
   assert.equal(q['Culture Swabs'],4);assert.equal(q['Scalpel Blades'],42);
   assert.equal(q['Adipose Recovery Kit'],2);assert.equal(q['Cord Clamps'],4);assert.equal(q['Bone Kit'],1);
   assert.equal(q['T1 — Size 7.5'],23);assert.equal(q['C — Size 7.5'],12);
   assert.deepEqual(h.build(pictured),items,'Rebuilding must not accumulate quantities');
   assert.deepEqual(JSON.parse(JSON.stringify(h.context.orderedPrintableSupplies())),items);
   assert.match(h.nodes.get('supplies').innerHTML,/Culture Swabs/);
-  assert.match(h.nodes.get('supplies').innerHTML,/pdx-culture-value">6</);
+  assert.match(h.nodes.get('supplies').innerHTML,/pdx-culture-value">7</);
 });
 test('skin and adipose swabs survive adding bone/tendon grafts',()=>{
   const h=harness();
   for(const selected of [[...allSkin,'adipose'],[...allSkin,'adipose','humerus'],['anteriorSkin','adipose','achilles']])assert.equal(quantities(h.build({selected,sides:[]}))['Culture Swabs'],4);
-  assert.equal(quantities(h.build({selected:['adipose'],sides:[]})).TSB,'0/3/0');
+  assert.equal(quantities(h.build({selected:['adipose'],sides:[]})).TSB,'0/4/0');
   assert.equal(quantities(h.build({selected:allSkin,sides:[]}))['Culture Swabs'],undefined);
 });
-test('representative cases retain established quantities apart from the two corrections',()=>{
+test('representative cases retain established quantities apart from explicit supply corrections',()=>{
   const cases=[[],allSkin,['humerus','fascia'],['heartArtivion'],['heartLeMaitre'],['nerves'],['nerves','saphLeMaitre'],['saphLeMaitre'],['heartLeMaitre','saphLeMaitre','femVeinLeMaitre','aiLeMaitre'],['cartilage','pericardium'],['kneeBlock'],['armBlock'],['adipose'],[...allSkin,'adipose'],pictured.selected,[...allSkin,'nerves','heartArtivion']];
   for(const selected of cases){
     const r={selected,sides:[]},old=quantities(harness(true).build(r)),actual=quantities(harness().build(r).filter(item=>!item.eyeDonorBlood));
     if(selected.includes('adipose')){
-      for(const name of ['TSB','Thio']){const parts=old[name].split('/').map(Number);parts[1]--;old[name]=parts.join('/');}
       if(selected.some(id=>allSkin.includes(id)))old['Culture Swabs']=4;
     }
+    const msIds=new Set(['humerus','radius','ulna','fascia','femur','tibia','fibula','achilles','hemi','kneeBlock','armBlock','cartilage','pericardium']);
+    if(selected.some(id=>allSkin.includes(id))&&!selected.some(id=>msIds.has(id)))old['FT Skin Kit']=1;
     assert.deepEqual(actual,old,selected.join(','));
   }
 });
@@ -75,7 +76,53 @@ test('additional techs receive nerve and heart glove extras once on each build',
 });
 test('loader activates only the consolidated supply rules',()=>{
   const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.equal((loader.match(/supply-rules\.js\?v=9212/g)||[]).length,1);
+  assert.equal((loader.match(/supply-rules\.js\?v=9214/g)||[]).length,1);
   for(const name of ['supply-name-fix','blade-culture-quantity-fix','glove-quantity-fix','supply-order-fix'])assert.ok(!loader.includes(name+'.js'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9212'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9214'));
+});
+
+test('each of the four adipose sites contributes one middle TSB and one middle Thio',()=>{
+ const h=harness();
+ const counts=h.context.PDXBladeCultureFix.cultureTotals({selected:['adipose'],sides:[]});
+ assert.equal(counts.middle,4);assert.equal(counts.left,0);assert.equal(counts.right,0);
+ for(const selected of [['adipose'],['adipose','heartArtivion','nerves'],['adipose',...allSkin],['adipose','femur']]){
+  const r={selected,sides:[]},without={selected:selected.filter(id=>id!=='adipose'),sides:[]};
+  const withTotals=h.context.PDXBladeCultureFix.cultureTotals(r),base=h.context.PDXBladeCultureFix.cultureTotals(without);
+  assert.equal(withTotals.middle-base.middle,4);assert.equal(withTotals.left,base.left);assert.equal(withTotals.right,base.right);
+  const rows=h.build(r),q=quantities(rows);assert.equal(q.TSB,withTotals.quantity);assert.equal(q.Thio,withTotals.quantity);
+  assert.deepEqual(h.build(r),rows,'Repeated builds do not accumulate culture tubes');
+  assert.deepEqual(JSON.parse(JSON.stringify(h.context.orderedPrintableSupplies())),rows);
+ }
+});
+test('any skin without MS gets exactly one FT Skin Kit, including adipose and PFO combinations',()=>{
+ const h=harness();
+ for(const skin of allSkin)for(const others of [[],['adipose'],['nerves'],['heartArtivion'],['saphLeMaitre'],['adipose','nerves','heartArtivion']]){
+  const r={selected:[skin,...others],sides:[]},rows=h.build(r);
+  assert.equal(rows.filter(item=>item.n==='FT Skin Kit').length,1);
+  assert.equal(quantities(rows)['FT Skin Kit'],1);
+  assert.deepEqual(h.build(r),rows);
+  assert.match(h.nodes.get('supplies').innerHTML,/FT Skin Kit/);
+  assert.deepEqual(JSON.parse(JSON.stringify(h.context.orderedPrintableSupplies())),rows);
+ }
+ assert.equal(quantities(h.build({selected:allSkin,sides:[]}))['FT Skin Kit'],1);
+});
+test('skin with any MS graft, including OCA or fascia, does not add an FT Skin Kit',()=>{
+ const h=harness();
+ const data=JSON.parse(vm.runInContext('JSON.stringify(graftMasterSeed)',h.context));
+ for(const graft of data.filter(g=>g.group==='internal'&&!g.skin)){
+  const sides=graft.oca?[graft.id+'_left']:[];
+  assert.equal(quantities(h.build({selected:['anteriorSkin',graft.id],sides}))['FT Skin Kit'],undefined,graft.id);
+ }
+ for(const selected of [[],['adipose'],['nerves']])assert.equal(quantities(h.build({selected,sides:[]}))['FT Skin Kit'],undefined);
+});
+test('FT Skin Kit follows side-only MS selections and replaces earlier kit rows without duplication',()=>{
+ const h=harness(),api=h.context.PDXSupplyOrder;
+ const prior=[{c:'Core',n:'FT Skin Kit',q:1},{c:'Recovery Kits',n:'Full Thickness Skin Kit',q:1}];
+ const noMs=api.applyNonBoneSupplyRules(prior,{selected:['anteriorSkin','adipose'],sides:[]});
+ assert.equal(noMs.filter(item=>item.n==='FT Skin Kit').length,1);
+ assert.equal(noMs.find(item=>item.n==='FT Skin Kit').q,1);
+ for(const side of ['bilateral_femur_left','freshKnee_right','ocaStd_tibia_right']){
+  const rows=api.applyNonBoneSupplyRules(noMs,{selected:['anteriorSkin'],sides:[side]});
+  assert.equal(rows.some(item=>/skin kit/i.test(item.n)),false,side);
+ }
 });
