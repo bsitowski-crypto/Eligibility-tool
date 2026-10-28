@@ -37,7 +37,17 @@
     {key:"stegosaurus",label:"Stegosaurus"},
     {key:"brachiosaurus",label:"Brachiosaurus"},
     {key:"ankylosaurus",label:"Ankylosaurus"},
-    {key:"velociraptor",label:"Velociraptor"}
+    {key:"velociraptor",label:"Velociraptor"},
+    {key:"capybara",label:"Capybara"},
+    {key:"axolotl",label:"Axolotl"},
+    {key:"fennec-fox",label:"Fennec Fox"},
+    {key:"atlantic-puffin",label:"Atlantic Puffin"},
+    {key:"quokka",label:"Quokka"},
+    {key:"hummingbird",label:"Hummingbird"},
+    {key:"meerkat",label:"Meerkat"},
+    {key:"sloth",label:"Sloth"},
+    {key:"chameleon",label:"Chameleon"},
+    {key:"harbor-seal",label:"Harbor Seal"}
   ]);
   const BY_KEY=new Map(ANIMALS.map(animal=>[animal.key,animal]));
 
