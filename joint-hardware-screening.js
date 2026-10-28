@@ -35,6 +35,7 @@
     };
     try{save()}catch{}
     refreshVisibility();
+    applyRestriction();
   }
   function injectStyle(){
     if(document.getElementById(STYLE_ID))return;
@@ -122,7 +123,7 @@
     const bad=x.hardware.filter(v=>deferHardware.has(v));
     if(bad.length){
       const names={externalLower:"lower-extremity external fixator",orifFemur:"femur ORIF",orifTibFib:"tibia/fibula ORIF",rodLower:"lower-extremity rod"};
-      return{level:"defer",text:`Defer MS tissue because of ${bad.map(v=>names[v]).join(", ")}. Donors age 40 and under may still be evaluated for OCA.`};
+      return{level:"defer",text:`Defer MS tissue because of ${bad.map(v=>names[v]).join(", ")}.`};
     }
     if(x.hips>0){
       if(s==="female"){
@@ -149,28 +150,87 @@
     if(document.getElementById("jhHas")?.value!=="yes"){b.className="hidden";b.textContent="";return}
     b.className=r.level; b.innerHTML=`<strong>${r.level==="defer"?"DEFER MS":r.level==="consult"?"CONSULT MS":"ACCEPT"}</strong><br>${r.text}`;
   }
+  function deferredGrafts(){
+    if(evaluate().level!=="defer")return [];
+    try{return grafts.filter(g=>g.group==="internal"&&!g.skin)}catch{return []}
+  }
+  function recoveryGraftId(value){
+    return String(value||"").replace(/^recover_/,"")
+      .replace(/^(bilateral_|ocaStd_)/,"").replace(/_(left|right)$/,"");
+  }
+  function restrictRecovery(recovery){
+    const deferred=new Set(deferredGrafts().map(g=>g.id));
+    if(!deferred.size||!recovery)return recovery;
+    return {...recovery,
+      selected:(recovery.selected||[]).filter(id=>!deferred.has(id)),
+      sides:(recovery.sides||[]).filter(id=>!deferred.has(recoveryGraftId(id)))
+    };
+  }
   function applyRestriction(){
     const r=evaluate(); showBanner(r);
     const old=document.getElementById("jhRecoveryBanner"); if(old)old.remove();
-    if(r.level==="accept")return;
-    const recovery=document.getElementById("recoveryCard"); if(!recovery)return;
-    const banner=document.createElement("div"); banner.id="jhRecoveryBanner";
-    banner.className="result "+(r.level==="defer"?"bad":"warn");
-    banner.innerHTML=`<strong>${r.level==="defer"?"JOINT/HARDWARE — DEFER MS":"JOINT/HARDWARE — CONSULT MS"}</strong><div class="small" style="margin-top:4px">${r.text}</div>`;
-    recovery.insertBefore(banner,recovery.children[1]||null);
-    if(r.level!=="defer")return;
-    const a=years();
-    try{
-      const deferred=grafts.filter(g=>g.group==="internal"&&!g.skin && !(a<=40&&g.oca));
-      for(const g of deferred){
-        const probes=[document.getElementById("recover_"+g.id),document.getElementById(g.id+"_left"),document.getElementById(g.id+"_right"),document.getElementById("bilateral_"+g.id+"_left"),document.getElementById("bilateral_"+g.id+"_right")].filter(Boolean);
-        probes.forEach(p=>{const row=p.closest(".proc,.check,.radio"); if(row){const proc=p.closest(".proc");(proc||row).remove()}});
-        if(typeof lastRuledOut!=="undefined"&&!lastRuledOut.some(x=>x.id===g.id))lastRuledOut.push({id:g.id,name:g.name,reasons:["Joint replacement / hardware rule: defer MS tissue."]});
+    const deferred=deferredGrafts(),ids=new Set(deferred.map(g=>g.id));
+    let changed=false;
+    document.querySelectorAll("#recoveryOptions input").forEach(input=>{
+      const blocked=ids.has(recoveryGraftId(input.id))||ids.has(input.value);
+      if(blocked){
+        if(input.checked){input.checked=false;changed=true}
+        if(!input.disabled){input.disabled=true;input.dataset.jhDisabled="1"}
+      }else if(input.dataset.jhDisabled){
+        input.disabled=false;delete input.dataset.jhDisabled;
       }
-      if(typeof renderRuledOut==="function")renderRuledOut();
-    }catch(err){console.warn("Joint/hardware restriction display warning",err)}
+    });
+    const d=donor(),saved=d?.recovery;
+    if(saved){
+      const cleaned=restrictRecovery(saved);
+      if(JSON.stringify(cleaned)!==JSON.stringify(saved)){d.recovery=cleaned;changed=true}
+    }
+    if(changed){
+      // The validated supply list and printable document must be rebuilt from
+      // the now-cleared plan; an earlier MS selection must not survive there.
+      for(const id of ["validationCard","suppliesCard","printActions"]){
+        document.getElementById(id)?.classList.add("hidden");
+      }
+      try{latestSupplyItems=[]}catch{}
+      try{if(typeof snapshot==="function")snapshot();else save()}catch{}
+      try{if(typeof updateTiming==="function")updateTiming()}catch{}
+    }
+    if(r.level==="accept")return;
+    const recovery=document.getElementById("recoveryCard");
+    if(recovery){
+      const banner=document.createElement("div"); banner.id="jhRecoveryBanner";
+      banner.className="result "+(r.level==="defer"?"bad":"warn");
+      banner.innerHTML=`<strong>${r.level==="defer"?"JOINT/HARDWARE — DEFER MS":"JOINT/HARDWARE — CONSULT MS"}</strong><div class="small" style="margin-top:4px">${r.text}</div>`;
+      recovery.insertBefore(banner,recovery.children[1]||null);
+    }
+    if(r.level!=="defer")return;
+    if(typeof lastRuledOut!=="undefined"){
+      for(const g of deferred){
+        if(!lastRuledOut.some(x=>x.id===g.id))lastRuledOut.push({id:g.id,name:g.name,reasons:["Joint replacement / hardware rule: defer MS tissue."]});
+      }
+    }
+    if(typeof renderRuledOut==="function")renderRuledOut();
   }
   function installWrappers(){
+    if(typeof window.getRecovery==="function"&&!window.getRecovery.__jhWrapped){
+      const orig=window.getRecovery;
+      const wrapped=function(){return restrictRecovery(orig.apply(this,arguments))};
+      wrapped.__jhWrapped=true;window.getRecovery=wrapped;
+    }
+    if(typeof window.graftRuleReasons==="function"&&!window.graftRuleReasons.__jhWrapped){
+      const orig=window.graftRuleReasons;
+      const wrapped=function(g){
+        const reasons=orig.apply(this,arguments);
+        if(deferredGrafts().some(item=>item.id===g?.id))reasons.push("Joint replacement / hardware rule: defer MS tissue.");
+        return reasons;
+      };
+      wrapped.__jhWrapped=true;window.graftRuleReasons=wrapped;
+    }
+    if(typeof window.validateRecovery==="function"&&!window.validateRecovery.__jhWrapped){
+      const orig=window.validateRecovery;
+      const wrapped=function(){applyRestriction();return orig.apply(this,arguments)};
+      wrapped.__jhWrapped=true;window.validateRecovery=wrapped;
+    }
     if(typeof window.loadDonor==="function"&&!window.loadDonor.__jhWrapped){
       const orig=window.loadDonor;
       const wrapped=function(d){const out=orig.apply(this,arguments);loadState(d);setTimeout(applyRestriction,0);return out};
@@ -185,10 +245,12 @@
   function boot(){
     if(!inject())return false;
     installWrappers();
+    applyRestriction();
     const sex=document.getElementById("sex"),age=document.getElementById("age");
-    sex?.addEventListener("change",()=>{showBanner(evaluate())});
-    age?.addEventListener("input",()=>{showBanner(evaluate())});
+    sex?.addEventListener("change",applyRestriction);
+    age?.addEventListener("input",applyRestriction);
     return true;
   }
+  window.JointHardwareScreening={evaluate,applyRestriction,restrictRecovery,saveState};
   let tries=0;const timer=setInterval(()=>{tries++;if(boot()||tries>40)clearInterval(timer)},150);
 })();
