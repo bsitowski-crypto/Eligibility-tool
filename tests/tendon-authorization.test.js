@@ -37,20 +37,16 @@ test('female tendon limits and Achilles remain unchanged',()=>{
     assert.equal(run("G('achilles').female[1]"),72);
   }
 });
-test('saved former male limits migrate once without altering female ranges or custom criteria',()=>{
-  const saved=Object.entries(limits).map(([id,limit])=>({id,male:[14,limit],female:[14,limit],criteriaNotes:'Saved notes'}));
-  const {run,values}=setup(saved);
+test('legacy local tendon rules cannot override published ranges or authorization thresholds',()=>{
+  const saved=Object.entries(limits).map(([id,limit])=>({id,male:[18,65],female:null,maleDomesticMax:80}));
+  const {run}=setup(saved);
   for(const [id,limit] of Object.entries(limits)){
-    assert.equal(run(`G('${id}').male[1]`),75);
-    assert.equal(run(`G('${id}').female[1]`),limit);
-    assert.equal(run(`G('${id}').criteriaNotes`),'Saved notes');
+    assert.equal(run(`G('${id}').male.join(',')`),'14,75');
+    assert.equal(run(`G('${id}').female.join(',')`),`14,${limit}`);
+    assert.equal(run(`G('${id}').maleDomesticMax`),limit);
   }
-  assert.equal(JSON.parse(values.get('solvita_v990_graft_criteria')).find(g=>g.id==='antTib').male[1],75);
   run("G('antTib').male[1]=65;saveGraftCriteria();loadGraftCriteria()");
-  assert.equal(run("G('antTib').male[1]"),65);
-  const custom=setup([{id:'antTib',male:[18,65],female:null}]);
-  assert.equal(custom.run("G('antTib').male.join(',')"),'18,65');
-  assert.equal(custom.run("G('antTib').female"),null);
+  assert.equal(run("G('antTib').male[1]"),75);
 });
 test('existing selections are filtered before supply and print use, and authorization refresh preserves other selections',()=>{
   const {c,run}=setup();
