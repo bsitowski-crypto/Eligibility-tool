@@ -26,7 +26,7 @@
   function fullDateLabel(key){
     const [year,month,day]=key.split("-").map(Number);return new Date(year,month-1,day).toLocaleDateString(undefined,{weekday:"short",day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
   }
-  function peopleText(people){return (people||[]).map(person=>person.name||person.initials).filter(Boolean).join(" + ")||"—"}
+  function peopleText(people){return (people||[]).map(person=>window.StaffingScheduleParser?.CUSTOM_NAMES?.[person.initials]||person.name||person.initials).filter(Boolean).join(" + ")||"—"}
   function sameAssignment(a,b){return peopleText(a)===peopleText(b)}
   function loadLocalSchedule(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"null")}catch{return null}}
   function saveLocalSchedule(value){activeSchedule=value;try{localStorage.setItem(STORAGE_KEY,JSON.stringify(value))}catch{}renderTracker()}
