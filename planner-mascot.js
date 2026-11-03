@@ -192,7 +192,13 @@
         image.height=64;
         image.loading="lazy";
         image.decoding="async";
-        card.prepend(image);
+      }
+      const timing=card.querySelector(".priority-timing");
+      const identity=card.querySelector(".name");
+      if(timing){
+        if(image.nextSibling!==timing)timing.before(image);
+      }else if(identity&&identity.nextSibling!==image){
+        identity.after(image);
       }
       if(image.getAttribute("src")!==state.marker.imageUrl)image.setAttribute("src",state.marker.imageUrl);
       image.alt=state.marker.label;
@@ -203,10 +209,15 @@
 
   function install(){
     const version=root.document.querySelector(".ver");
-    if(version)version.textContent="Version 9.10.15 - Home Card Mascots";
+    if(version)version.textContent="Version 9.10.16 - Home Card Mascot Layout";
     const style=root.document.createElement("style");
     style.textContent=`
-      #board .pdx-home-mascot{float:right;display:block;width:64px;height:64px;object-fit:contain;margin:0 0 8px 10px;border-radius:10px;background:#fff}
+      #board .pdx-home-mascot{display:block;width:64px;height:64px;object-fit:contain;margin:8px auto;border-radius:10px;background:#fff}
+      #board .priority-card{grid-template-columns:minmax(110px,.55fr) 64px minmax(230px,1.25fr) minmax(170px,.95fr) minmax(160px,.75fr) minmax(120px,.52fr);grid-template-areas:"identity mascot timing details transport actions" "notes notes notes notes notes notes"}
+      #board .priority-card>.pdx-home-mascot{grid-area:mascot;justify-self:center;align-self:center}
+      @media(max-width:1050px){
+        #board .priority-card{grid-template-columns:minmax(0,1fr);grid-template-areas:"identity" "mascot" "timing" "details" "transport" "actions" "notes"}
+      }
       #board .donor .name{overflow-wrap:anywhere}
       #board .donor .actions{clear:both}
     `;
