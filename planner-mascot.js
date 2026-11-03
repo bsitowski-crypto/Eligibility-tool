@@ -173,13 +173,53 @@
     return state.marker;
   }
 
+  function updateHomeCards(){
+    const board=root.document.getElementById("board");
+    if(!board)return;
+    let changed=false;
+    for(const card of board.querySelectorAll(".donor")){
+      const id=card.querySelector(".donor-open-btn[data-donor-id]")?.dataset.donorId;
+      const donor=donorList().find(item=>item.id===id);
+      if(!donor)continue;
+      // Reuse the planner's saved animal without advancing its print revision.
+      const state=applyMarkerState(donor,null,usedAnimalKeys(donor));
+      changed=state.changed||changed;
+      let image=card.querySelector(".pdx-home-mascot");
+      if(!image){
+        image=root.document.createElement("img");
+        image.className="pdx-home-mascot";
+        image.width=64;
+        image.height=64;
+        image.loading="lazy";
+        image.decoding="async";
+        card.prepend(image);
+      }
+      if(image.getAttribute("src")!==state.marker.imageUrl)image.setAttribute("src",state.marker.imageUrl);
+      image.alt=state.marker.label;
+      image.title=state.marker.label;
+    }
+    if(changed)persist();
+  }
+
   function install(){
     const version=root.document.querySelector(".ver");
-    if(version)version.textContent="Version 9.10.14 - Expanded Case Mascots";
+    if(version)version.textContent="Version 9.10.15 - Home Card Mascots";
+    const style=root.document.createElement("style");
+    style.textContent=`
+      #board .pdx-home-mascot{float:right;display:block;width:64px;height:64px;object-fit:contain;margin:0 0 8px 10px;border-radius:10px;background:#fff}
+      #board .donor .name{overflow-wrap:anywhere}
+      #board .donor .actions{clear:both}
+    `;
+    root.document.head.appendChild(style);
+    const board=root.document.getElementById("board");
+    if(board){
+      new root.MutationObserver(updateHomeCards).observe(board,{childList:true,subtree:true});
+      updateHomeCards();
+    }
   }
 
   return {
     ANIMALS,hash32,fingerprint,signatureFor,chooseAnimalKey,
-    markerFromState,applyMarkerState,markerForCurrent,install
+    markerFromState,applyMarkerState,markerForCurrent,updateHomeCards,install
   };
 });
