@@ -10,7 +10,7 @@
   const ADMIN_NAMES={AEP:"Aaron P.",AEP2:"Aaron P.",JAH:"Jake H.",LSG:"Luke G."};
   const CUSTOM_NAMES={
     ...ADMIN_NAMES,
-    BNS2:"Ben S.",DDER:"Des E.",LMC:"Linda C.",MCB3:"Cade B.",MD:"Malia D.",MMF:"McKenna F.",SCF:"Sari F."
+    PCM:"Pete M.",BNS2:"Ben S.",DDER:"Des E.",LMC:"Linda C.",MCB3:"Cade B.",MD:"Malia D.",MMF:"McKenna F.",SCF:"Sari F."
   };
   const INACTIVE_CODES=new Set(["CMT3","MRH2"]);
   const ROLE_KEYS=["admin","coordinator","primaryCirculator","primaryTech1","primaryTech2","backupCirculator","backupTech1","backupTech2"];
