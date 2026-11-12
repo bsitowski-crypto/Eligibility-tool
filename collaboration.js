@@ -74,7 +74,8 @@
           changed=true;
         }
       }
-      return changed?JSON.stringify(records):value;
+      const updated=records.map(person=>typeof normalizeStaffTraining==="function"?normalizeStaffTraining(person):person);
+      return changed||updated.some((person,i)=>person!==records[i])?JSON.stringify(updated):value;
     }catch{return value}
   }
   function openMaster(){
