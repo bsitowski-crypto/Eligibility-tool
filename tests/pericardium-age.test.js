@@ -4,7 +4,7 @@ const fs=require('node:fs'),zlib=require('node:zlib'),vm=require('node:vm'),path
 const root=path.join(__dirname,'..');
 const html=zlib.gunzipSync(Buffer.from([1,2,3].map(i=>fs.readFileSync(path.join(root,`app/data-${i}.b64`),'utf8').trim()).join(''),'base64')).toString();
 test('pericardium age 60 inclusive for both sexes, including legacy devices',()=>{
- const c={cloneData:x=>JSON.parse(JSON.stringify(x)),localStorage:{getItem:()=>JSON.stringify([{id:'pericardium',male:[14,80],female:[14,72]}])},age:{value:'60'},organDonor:{value:'no'},heartLungsTransplant:{value:'no'},forProfit:{value:'yes'},oca:{value:'no'}};
+ const c={cloneData:x=>JSON.parse(JSON.stringify(x)),localStorage:{getItem:()=>JSON.stringify([{id:'pericardium',male:[14,80],female:[14,72]}])},age:{value:'60'},organDonor:{value:'no'},heartLungsTransplant:{value:'no'},forProfit:{value:'yes'},oca:{value:'no'},funeral:{value:'direct'}};
  vm.createContext(c);
  vm.runInContext(html.slice(html.indexOf('const GRAFTCRITERIAKEY='),html.indexOf('const funeralSeed=')),c);
  vm.runInContext(html.slice(html.indexOf('function otherEligibleChestGrafts('),html.indexOf('function screenDonor(')),c);
@@ -14,6 +14,10 @@ test('pericardium age 60 inclusive for both sexes, including legacy devices',()=
    c.age.value=String(age);
    assert.equal(run(`graftRuleReasons(G('pericardium'),${age},'${sex}').length===0`),age>=14&&age<=60,`${sex} age ${age}`);
   }
+  c.age.value='30';c.oca.value='yes';
+  assert.match(run(`graftRuleReasons(G('pericardium'),30,'${sex}').join(' ')`),/not available for OCA\/JRF donors/);
+  c.oca.value='no';
+  assert.equal(run(`graftRuleReasons(G('pericardium'),30,'${sex}').length`),0);
   c.organDonor.value='yes';c.heartLungsTransplant.value='yes';
   assert.match(run(`graftRuleReasons(G('pericardium'),60,'${sex}').join(' ')`),/other eligible chest graft/);
   c.organDonor.value='no';c.heartLungsTransplant.value='no';
