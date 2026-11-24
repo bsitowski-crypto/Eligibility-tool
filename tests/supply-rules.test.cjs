@@ -65,6 +65,16 @@ test('unilateral recovery and processor exclusions retain culture accounting',()
   assert.equal(q.TSB,'1/0/1');assert.equal(q.Thio,'1/0/1');
   assert.equal(q['Scalpel Blades'],7); // two arms + two legs + one chest + two graft blades
 });
+test('each Solvita arm en bloc side pulls the same supplies as one arm bone',()=>{
+  const h=harness();
+  for(const [sides,cultures] of [[['left'],'1/0/0'],[['right'],'0/0/1'],[['left','right'],'1/0/1']]){
+    const recover=id=>h.build({selected:[id],sides:sides.map(side=>`bilateral_${id}_${side}`)});
+    const items=recover('armEnBloc');
+    assert.deepEqual(items,recover('humerus'));
+    assert.equal(quantities(items).TSB,cultures);
+    assert.equal(quantities(items).Thio,cultures);
+  }
+});
 test('additional techs receive nerve and heart glove extras once on each build',()=>{
   const h=harness(false,[{role:'tech',name:'Visitor',surgicalGlove:'8'}]);
   const r={selected:['humerus','nerves','heartArtivion'],sides:[]};
@@ -76,9 +86,11 @@ test('additional techs receive nerve and heart glove extras once on each build',
 });
 test('loader activates only the consolidated supply rules',()=>{
   const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.equal((loader.match(/supply-rules\.js\?v=9214/g)||[]).length,1);
+  const supplyScripts=loader.match(/supply-rules\.js\?v=\d+/g)||[];
+  assert.equal(supplyScripts.length,1);
   for(const name of ['supply-name-fix','blade-culture-quantity-fix','glove-quantity-fix','supply-order-fix'])assert.ok(!loader.includes(name+'.js'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9214'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+  assert.ok(sw.includes('./'+supplyScripts[0]));
 });
 
 test('each of the four adipose sites contributes one middle TSB and one middle Thio',()=>{

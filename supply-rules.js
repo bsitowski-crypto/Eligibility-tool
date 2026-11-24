@@ -124,7 +124,7 @@
   const BILATERAL_IDS=new Set([
     "humerus","radius","ulna","femur","tibia","fibula","achilles",
     "hemi","antTib","postTib","gracilis","semitendinosus","peroneus",
-    "kneeBlock","armBlock","fascia"
+    "kneeBlock","armBlock","armEnBloc","fascia"
   ]);
   const PROCESSORS={
     heartArtivion:"Artivion",dta:"Artivion",saphArtivion:"Artivion",
@@ -139,12 +139,12 @@
   const BONE_TENDON_IDS=new Set([
     "humerus","radius","ulna","femur","tibia","fibula","achilles",
     "hemi","antTib","postTib","gracilis","semitendinosus","peroneus",
-    "kneeBlock","armBlock","freshHumerus","freshProxHumerus",
+    "kneeBlock","armBlock","armEnBloc","freshHumerus","freshProxHumerus",
     "freshProxFemur","freshKnee","freshAnkle","silvieElbow"
   ]);
 
   const ARM_IDS=new Set([
-    "humerus","radius","ulna","armBlock","freshHumerus",
+    "humerus","radius","ulna","armBlock","armEnBloc","freshHumerus",
     "freshProxHumerus","silvieElbow","nerves"
   ]);
   const LEG_IDS=new Set([
@@ -433,7 +433,7 @@
   const BONE_TENDON_IDS=new Set([
     "humerus","radius","ulna","femur","tibia","fibula",
     "achilles","hemi","antTib","postTib","gracilis",
-    "semitendinosus","peroneus","kneeBlock","armBlock",
+    "semitendinosus","peroneus","kneeBlock","armBlock","armEnBloc",
     "freshHumerus","freshProxHumerus","freshProxFemur",
     "freshKnee","freshAnkle","silvieElbow","cartilage","calvarium"
   ]);

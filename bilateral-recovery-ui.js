@@ -10,9 +10,9 @@
   const BILATERAL_IDS=new Set([
     "humerus","radius","ulna","femur","tibia","fibula","achilles",
     "hemi","antTib","postTib","gracilis","semitendinosus","peroneus",
-    "kneeBlock","armBlock","fascia"
+    "kneeBlock","armBlock","armEnBloc","fascia"
   ]);
-  const STANDARD_OPT_IN_IDS=new Set(["kneeBlock","armBlock"]);
+  const STANDARD_OPT_IN_IDS=new Set(["kneeBlock","armBlock","armEnBloc"]);
   const OCA_SIDE_IDS=[
     "freshHumerus","freshProxFemur","freshKnee","freshAnkle","silvieElbow"
   ];
@@ -81,11 +81,13 @@
     if(!isChecked)return [];
     const targets=[];
     const parsed=parseSideId(inputId);
-    if(parsed?.id==="armBlock"){
+    if(parsed?.id==="armEnBloc"){
+      for(const id of [...ARM_BONE_IDS,"armBlock"])targets.push(sideId(id,parsed.side));
+    }else if(parsed?.id==="armBlock"){
       ARM_BONE_IDS.forEach(id=>targets.push(sideId(id,parsed.side)));
-      targets.push(`silvieElbow_${parsed.side}`);
+      targets.push(sideId("armEnBloc",parsed.side),`silvieElbow_${parsed.side}`);
     }else if(parsed&&ARM_BONE_IDS.includes(parsed.id)){
-      targets.push(sideId("armBlock",parsed.side),`silvieElbow_${parsed.side}`);
+      targets.push(sideId("armBlock",parsed.side),sideId("armEnBloc",parsed.side),`silvieElbow_${parsed.side}`);
     }
 
     const elbow=String(inputId||"").match(/^silvieElbow_(left|right)$/);
@@ -231,6 +233,7 @@
       const isNewPlan=!restore?.initialized;
 
       for(const id of BILATERAL_IDS)transformStandard(id,restore);
+      for(const side of ["left","right"])beforeChange(document.getElementById(sideId("armEnBloc",side)));
       const ocaRows=OCA_SIDE_IDS.map(id=>transformOca(id,restore,isNewPlan));
       groupOcaRows(ocaRows);
 
@@ -251,10 +254,17 @@
     }
 
     function beforeChange(input){
+      if(parseSideId(input?.id)?.id==="armEnBloc"&&input.checked&&!armEnBlocEligible()){
+        input.checked=false;
+      }
       for(const targetId of armConflictClearTargets(input?.id,input?.checked)){
         const target=document.getElementById(targetId);
         if(target)target.checked=false;
       }
+    }
+
+    function armEnBlocEligible(){
+      return root.graftRuleReasons(graft("armEnBloc"),root.donorAgeYears(),document.getElementById("sex").value).length===0;
     }
 
     function refreshSideLabels(){
@@ -292,7 +302,7 @@
         const sides=unique(result.sides);
         document.querySelectorAll(".bilateral-side:checked").forEach(input=>{
           const parsed=parseSideId(input.id);
-          if(!parsed)return;
+          if(!parsed||(parsed.id==="armEnBloc"&&!armEnBlocEligible()))return;
           sides.push(input.id);
           selected.push(parsed.id);
         });
