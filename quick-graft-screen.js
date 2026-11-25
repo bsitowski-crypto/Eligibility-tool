@@ -7,23 +7,25 @@
     const age=parseAgeInput(inputs.age);
     const bmi=Number(inputs.bmi);
     const yesNo=value=>value==="yes"||value==="no";
-    if(!age||!Number.isFinite(bmi)||bmi<=0||inputs.location!=="portland"||
+    if(!age||!Number.isFinite(bmi)||bmi<=0||
       !["male","female"].includes(inputs.sex)||!["after","no"].includes(inputs.autopsy)||
-      ![inputs.international,inputs.forProfit,inputs.oca,inputs.organDonor].every(yesNo)){
+      ![inputs.oca,inputs.organDonor].every(yesNo)){
       return null;
     }
 
-    const options=(answer,choices)=>answer?[answer]:choices;
-    const scenarios=[];
-    for(const funeral of options(inputs.funeral,["viewing","direct","uncertain"])){
-      for(const cosmetic of options(inputs.cosmetic,["yes","no"])){
-        const transplantOptions=inputs.organDonor==="yes"
-          ? options(inputs.heartLungsTransplant,["yes","no"])
-          : ["no"];
-        for(const heartLungsTransplant of transplantOptions){
-          scenarios.push({...inputs,bmi,funeral,cosmetic,heartLungsTransplant});
-        }
-      }
+    const yesNoChoices=["yes","no"];
+    const scenarioFields={
+      funeral:["viewing","direct","uncertain"],
+      international:yesNoChoices,
+      forProfit:yesNoChoices,
+      cosmetic:yesNoChoices,
+      heartLungsTransplant:inputs.organDonor==="yes"?yesNoChoices:["no"]
+    };
+    let scenarios=[{...inputs,bmi}];
+    for(const [field,choices] of Object.entries(scenarioFields)){
+      const answer=field==="heartLungsTransplant"&&inputs.organDonor==="no"?"no":inputs[field];
+      const options=choices.includes(answer)?[answer]:choices;
+      scenarios=scenarios.flatMap(context=>options.map(value=>({...context,[field]:value})));
     }
 
     const results=scenarios.map(context=>{
@@ -106,17 +108,16 @@
       '<div class="qgs-header"><h2 id="qgsTitle">Quick graft screen</h2><button type="button" id="qgsClose">Close</button></div>'+
       '<div class="qgs-body"><p>Preliminary screen for Portland. Complete the full donor and processor review before planning recovery.</p>'+
       '<form autocomplete="off"><div class="qgs-fields">'+
-      select("location","Location",'<option value="portland">Portland</option>')+
       '<label><span>Age</span><input name="age" type="text" placeholder="52 or 6m" required></label>'+
       select("sex","Sex",'<option value="">Select</option><option value="male">Male</option><option value="female">Female</option>')+
-      select("international","International authorized?",yesNo)+
-      select("forProfit","For-profit authorized?",yesNo)+
       select("oca","JRF/OCA eligible?",yesNo)+
       select("autopsy","Post-autopsy?",yesNo.replace('value="yes"','value="after"'))+
       select("organDonor","Post-organ recovery?",yesNo)+
       '<label><span>BMI</span><input name="bmi" type="number" min="0" step="any" inputmode="decimal" required></label>'+
-      '</div><details><summary>Additional details, if known</summary><div class="qgs-fields">'+
       select("funeral","Funeral plan",'<option value="">Unknown</option><option value="viewing">Viewing</option><option value="direct">Direct cremation</option><option value="uncertain">No viewing, cremation uncertain</option>',false)+
+      '</div><details><summary>Additional details, if known</summary><div class="qgs-fields">'+
+      select("international","International authorized?",optionalYesNo,false)+
+      select("forProfit","For-profit authorized?",optionalYesNo,false)+
       select("cosmetic","Cosmetic authorized?",optionalYesNo,false)+
       select("heartLungsTransplant","Heart or lungs donated for transplant?",optionalYesNo,false)+
       '</div></details><div class="qgs-actions"><button type="submit">Screen grafts</button>'+

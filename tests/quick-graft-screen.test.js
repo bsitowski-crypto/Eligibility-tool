@@ -16,7 +16,7 @@ vm.runInContext(read("post-autopsy-rules.js"),context);
 vm.runInContext(read("quick-graft-screen.js"),context);
 
 const defaults={
-  location:"portland",age:"52",sex:"male",international:"yes",forProfit:"yes",
+  age:"52",sex:"male",international:"yes",forProfit:"yes",
   oca:"no",autopsy:"no",organDonor:"no",bmi:"28.1"
 };
 const screen=overrides=>context.window.PDXQuickGraftScreen.screen({...defaults,...overrides});
@@ -47,14 +47,16 @@ test("authorization, age boundaries, and the entered BMI control the same graft 
   assert.ok(has(screen({bmi:"31.99",cosmetic:"yes"}).excluded,"Adipose"));
   assert.ok(has(screen({bmi:"32"}).review,"Adipose"));
   assert.ok(has(screen({bmi:"32",cosmetic:"yes",forProfit:"no"}).excluded,"Adipose"));
+  assert.ok(has(screen({bmi:"32",cosmetic:"yes",forProfit:""}).review,"Adipose"));
   assert.ok(has(screen({age:"75"}).possible,"Anterior Tibialis"));
   assert.ok(has(screen({age:"75",international:"no"}).excluded,"Anterior Tibialis"));
+  assert.ok(has(screen({age:"75",international:""}).review,"Anterior Tibialis"));
   assert.ok(has(screen({age:"76"}).excluded,"Anterior Tibialis"));
   assert.ok(has(screen({age:"30",oca:"yes"}).excluded,"Pericardium"));
 });
 
 test("missing or unsupported inputs produce no result",()=>{
-  for(const overrides of [{age:""},{age:"invalid"},{bmi:""},{bmi:"0"},{forProfit:""},{location:"dayton"}]){
+  for(const overrides of [{age:""},{age:"invalid"},{bmi:""},{bmi:"0"},{oca:""},{organDonor:""}]){
     assert.equal(screen(overrides),null);
   }
 });
