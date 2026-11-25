@@ -82,7 +82,8 @@ test("tool integration includes scripts, offline shell, and header exemption",()
   const fs=require("node:fs"),path=require("node:path");
   const read=name=>fs.readFileSync(path.join(__dirname,"..",name),"utf8");
   const index=read("index.html"),cache=read("sw.js"),ui=read("planner-tools.js");
-  assert.ok(index.includes("cooling-calculator.js?v=9189"));assert.ok(index.includes("planner-tools.js?v=9195"));
+  assert.ok(index.includes("cooling-calculator.js?v=9189"));const plannerScript=index.match(/planner-tools\.js\?v=\d+/)?.[0];
+  assert.ok(plannerScript);assert.ok(cache.includes(plannerScript));
   for(const file of ["cooling-calculator.js","planner-tools.js"]){assert.ok(cache.includes(`"./${file}"`));}
   assert.ok(index.indexOf("cooling-calculator.js")<index.indexOf("planner-tools.js"));
   assert.ok(read("compact-menu.js").includes('el.id==="plannerToolsButton"'));

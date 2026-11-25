@@ -3,6 +3,11 @@
   const BLOCKED=new Set(["heartArtivion","heartLeMaitre","aiArtivion","aiLeMaitre","dta","cartilage","pericardium"]);
   const MESSAGE="Post-autopsy donors cannot donate Heart, AI, DTA, Cartilage with Sternum, or Pericardium.";
 
+  function restrictionReason(id,status){
+    return status==="after"&&BLOCKED.has(id)?MESSAGE:"";
+  }
+  window.PDXPostAutopsyRules={restrictionReason};
+
   function install(){
     if(typeof window.graftRuleReasons!=="function")return false;
     if(window.graftRuleReasons.__postAutopsyPatched)return true;
@@ -11,7 +16,8 @@
       const reasons=original.apply(this,arguments)||[];
       try{
         const aut=document.getElementById("autopsy");
-        if(aut&&aut.value==="after"&&g&&BLOCKED.has(g.id)&&!reasons.includes(MESSAGE))reasons.push(MESSAGE);
+        const reason=restrictionReason(g?.id,aut?.value);
+        if(reason&&!reasons.includes(reason))reasons.push(reason);
       }catch{}
       return reasons;
     };
