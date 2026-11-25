@@ -86,10 +86,11 @@
     const menu=document.getElementById("solvitaMenuButton");if(!menu)return false;if(document.getElementById("plannerToolsButton"))return true;
     styles();const actions=document.createElement("div");actions.id="plannerHeaderActions";menu.before(actions);actions.appendChild(menu);
     button=document.createElement("button");button.id="plannerToolsButton";button.type="button";button.textContent="TOOLS ▾";button.setAttribute("aria-expanded","false");button.setAttribute("aria-controls","plannerToolsPanel");actions.appendChild(button);
-    panel=document.createElement("div");panel.id="plannerToolsPanel";panel.hidden=true;panel.innerHTML='<button type="button">Cooling time calculator</button>';document.body.appendChild(panel);buildDialog();
+    panel=document.createElement("div");panel.id="plannerToolsPanel";panel.hidden=true;panel.innerHTML='<button type="button" id="quickGraftScreenButton">Quick graft screen</button><button type="button" id="coolingCalculatorButton">Cooling time calculator</button>';document.body.appendChild(panel);buildDialog();
     window.PDXPlannerTools={toggle:togglePanel,close:closePanel,trigger:triggerButton};
     button.addEventListener("click",e=>{e.stopPropagation();togglePanel()});
-    panel.querySelector("button").addEventListener("click",()=>{closePanel();dialog.showModal();dialog.querySelector("#ct-death").focus();});
+    panel.querySelector("#quickGraftScreenButton").addEventListener("click",()=>{closePanel();window.PDXQuickGraftScreen.open(triggerButton());});
+    panel.querySelector("#coolingCalculatorButton").addEventListener("click",()=>{closePanel();dialog.showModal();dialog.querySelector("#ct-death").focus();});
     document.addEventListener("click",e=>{if(!panel.contains(e.target)&&e.target!==button)closePanel();});
     document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!panel.hidden){const trigger=triggerButton();closePanel();trigger.focus();}});
     window.addEventListener("resize",positionPanel);window.addEventListener("scroll",positionPanel,{passive:true});
