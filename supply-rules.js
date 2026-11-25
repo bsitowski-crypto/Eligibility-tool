@@ -311,8 +311,12 @@
     const grafts=recoveredGrafts(recovery);
     const hasSkin=grafts.some(graft=>SKIN_IDS.has(graft.id));
     const hasAdipose=grafts.some(graft=>graft.id==="adipose");
-    // Preserve the existing four-swab skin/adipose requirement in combined cases.
-    return hasSkin&&hasAdipose?4:0;
+    if(!hasSkin||!hasAdipose)return 0;
+    const hasSolvitaMs=grafts.some(({id})=>{
+      const graft=graftDetails(id);
+      return graft?.group==="internal"&&!graft.skin&&!graft.oca;
+    });
+    return hasSolvitaMs?0:4;
   }
 
   function correctedItems(items,recovery){
@@ -352,7 +356,7 @@
     if(swabs){
       output.push({
         c:"Culture Supplies",n:"Culture Swabs",q:swabs,
-        note:"Skin + adipose recovery, including combined bone/tendon cases"
+        note:"Skin + adipose recovery without Solvita MS grafts"
       });
     }
 
