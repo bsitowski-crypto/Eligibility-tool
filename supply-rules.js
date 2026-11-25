@@ -312,11 +312,11 @@
     const hasSkin=grafts.some(graft=>SKIN_IDS.has(graft.id));
     const hasAdipose=grafts.some(graft=>graft.id==="adipose");
     if(!hasSkin||!hasAdipose)return 0;
-    const hasSolvitaMs=grafts.some(({id})=>{
+    const hasMs=grafts.some(({id})=>{
       const graft=graftDetails(id);
-      return graft?.group==="internal"&&!graft.skin&&!graft.oca;
+      return graft?.group==="internal"&&!graft.skin;
     });
-    return hasSolvitaMs?0:4;
+    return hasMs?0:4;
   }
 
   function correctedItems(items,recovery){
@@ -356,7 +356,7 @@
     if(swabs){
       output.push({
         c:"Culture Supplies",n:"Culture Swabs",q:swabs,
-        note:"Skin + adipose recovery without Solvita MS grafts"
+        note:"Skin + adipose recovery without MS grafts"
       });
     }
 

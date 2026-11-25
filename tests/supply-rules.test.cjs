@@ -41,16 +41,16 @@ test('pictured case skips extra swabs and keeps cultures, blades, gloves and kit
   assert.doesNotMatch(h.nodes.get('supplies').innerHTML,/Culture Swabs/);
   assert.match(h.nodes.get('supplies').innerHTML,/pdx-culture-value">7</);
 });
-test('skin plus adipose pulls four swabs unless the case includes Solvita MS',()=>{
+test('skin plus adipose pulls four swabs unless the case includes Solvita or OCA/JRF MS',()=>{
   const h=harness();
   const base=[...allSkin,'adipose'];
   const data=JSON.parse(vm.runInContext('JSON.stringify(graftMasterSeed)',h.context));
   for(const graft of data.filter(g=>g.group==='internal'&&!g.skin)){
     const sides=graft.oca?[graft.id+'_left']:[];
     const q=quantities(h.build({selected:[...base,graft.id],sides}));
-    assert.equal(q['Culture Swabs'],graft.oca?4:undefined,graft.id);
+    assert.equal(q['Culture Swabs'],undefined,graft.id);
   }
-  for(const sides of [['bilateral_femur_left'],['ocaStd_tibia_right']]){
+  for(const sides of [['bilateral_femur_left'],['ocaStd_tibia_right'],['freshKnee_right']]){
     assert.equal(quantities(h.build({selected:base,sides}))['Culture Swabs'],undefined,sides[0]);
   }
   for(const others of [[],['nerves','heartArtivion']]){
