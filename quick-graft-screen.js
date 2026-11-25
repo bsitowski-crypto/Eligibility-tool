@@ -1,15 +1,23 @@
 (function(){
   "use strict";
 
+  function defaultOca(age){
+    if(!age)return "";
+    const inRange=grafts.some(graft=>graft.oca&&
+      (eligible(graft,"male",age.years)||eligible(graft,"female",age.years)));
+    return inRange?"yes":"no";
+  }
+
   // Unknown answers are evaluated across the planner's supported choices.
   // A graft that needs one of those answers stays in the review list.
   function screen(inputs){
     const age=parseAgeInput(inputs.age);
     const bmi=Number(inputs.bmi);
+    const oca=inputs.oca||defaultOca(age);
     const yesNo=value=>value==="yes"||value==="no";
     if(!age||!Number.isFinite(bmi)||bmi<=0||
       !["male","female"].includes(inputs.sex)||!["after","no"].includes(inputs.autopsy)||
-      ![inputs.oca,inputs.organDonor].every(yesNo)){
+      ![oca,inputs.organDonor].every(yesNo)){
       return null;
     }
 
@@ -21,7 +29,7 @@
       cosmetic:yesNoChoices,
       heartLungsTransplant:inputs.organDonor==="yes"?yesNoChoices:["no"]
     };
-    let scenarios=[{...inputs,bmi}];
+    let scenarios=[{...inputs,bmi,oca}];
     for(const [field,choices] of Object.entries(scenarioFields)){
       const answer=field==="heartLungsTransplant"&&inputs.organDonor==="no"?"no":inputs[field];
       const options=choices.includes(answer)?[answer]:choices;
@@ -104,21 +112,24 @@
     dialog.id="quickGraftScreen";
     dialog.setAttribute("aria-labelledby","qgsTitle");
     const optionalYesNo=yesNo.replace("Select","Unknown");
+    const defaultYes=optionalYesNo.replace('<option value="yes">','<option value="yes" selected>');
+    const defaultNo=yesNo.replace('<option value="">Select</option>','')
+      .replace('<option value="no">','<option value="no" selected>');
     dialog.innerHTML=
       '<div class="qgs-header"><h2 id="qgsTitle">Quick graft screen</h2><button type="button" id="qgsClose">Close</button></div>'+
       '<div class="qgs-body"><p>Preliminary screen for Portland. Complete the full donor and processor review before planning recovery.</p>'+
       '<form autocomplete="off"><div class="qgs-fields">'+
       '<label><span>Age</span><input name="age" type="text" placeholder="52 or 6m" required></label>'+
       select("sex","Sex",'<option value="">Select</option><option value="male">Male</option><option value="female">Female</option>')+
-      select("oca","JRF/OCA eligible?",yesNo)+
-      select("autopsy","Post-autopsy?",yesNo.replace('value="yes"','value="after"'))+
-      select("organDonor","Post-organ recovery?",yesNo)+
+      select("oca","JRF/OCA eligible?",yesNo.replace('value=""','value="" disabled selected'))+
+      select("autopsy","Post-autopsy?",defaultNo.replace('value="yes"','value="after"'))+
+      select("organDonor","Post-organ recovery?",defaultNo)+
       '<label><span>BMI</span><input name="bmi" type="number" min="0" step="any" inputmode="decimal" required></label>'+
       select("funeral","Funeral plan",'<option value="">Unknown</option><option value="viewing">Viewing</option><option value="direct">Direct cremation</option><option value="uncertain">No viewing, cremation uncertain</option>',false)+
       '</div><details><summary>Additional details, if known</summary><div class="qgs-fields">'+
-      select("international","International authorized?",optionalYesNo,false)+
-      select("forProfit","For-profit authorized?",optionalYesNo,false)+
-      select("cosmetic","Cosmetic authorized?",optionalYesNo,false)+
+      select("international","International authorized?",defaultYes,false)+
+      select("forProfit","For-profit authorized?",defaultYes,false)+
+      select("cosmetic","Cosmetic authorized?",defaultYes,false)+
       select("heartLungsTransplant","Heart or lungs donated for transplant?",optionalYesNo,false)+
       '</div></details><div class="qgs-actions"><button type="submit">Screen grafts</button>'+
       '<button type="reset" id="qgsClear">Clear</button></div></form>'+
@@ -126,6 +137,8 @@
     document.body.appendChild(dialog);
     form=dialog.querySelector("form");
     const results=dialog.querySelector("#qgsResults");
+    const ageField=form.elements.namedItem("age");
+    const ocaField=form.elements.namedItem("oca");
     const transplant=form.elements.namedItem("heartLungsTransplant");
 
     function syncTransplant(){
@@ -141,7 +154,8 @@
       dialog.querySelector("details").open=false;
       trigger?.focus();
     });
-    form.addEventListener("input",()=>{
+    form.addEventListener("input",event=>{
+      if(event.target===ageField)ocaField.value=defaultOca(parseAgeInput(ageField.value));
       syncTransplant();
       results.replaceChildren();
     });

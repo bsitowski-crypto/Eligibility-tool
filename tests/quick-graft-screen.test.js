@@ -55,8 +55,23 @@ test("authorization, age boundaries, and the entered BMI control the same graft 
   assert.ok(has(screen({age:"30",oca:"yes"}).excluded,"Pericardium"));
 });
 
+test("JRF/OCA defaults follow the planner's age range with an explicit override",()=>{
+  for(const age of ["12","144m","40"]){
+    const result=screen({age,oca:""});
+    assert.ok(has(result.review,"Knee Block (Fresh)"),age);
+  }
+  for(const age of ["11","143m","41"]){
+    const result=screen({age,oca:""});
+    assert.ok(has(result.excluded,"Knee Block (Fresh)"),age);
+    const reasons=[...result.possible,...result.review,...result.excluded]
+      .find(item=>item.name==="Pericardium").reasons;
+    assert.ok(!reasons.includes("Pericardium is not available for OCA/JRF donors."),age);
+  }
+  assert.ok(has(screen({age:"30",oca:"no"}).excluded,"Knee Block (Fresh)"));
+});
+
 test("missing or unsupported inputs produce no result",()=>{
-  for(const overrides of [{age:""},{age:"invalid"},{bmi:""},{bmi:"0"},{oca:""},{organDonor:""}]){
+  for(const overrides of [{age:""},{age:"invalid"},{bmi:""},{bmi:"0"},{oca:"invalid"},{organDonor:""}]){
     assert.equal(screen(overrides),null);
   }
 });
