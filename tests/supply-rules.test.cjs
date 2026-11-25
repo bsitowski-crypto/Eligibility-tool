@@ -30,30 +30,39 @@ function harness(legacy=false,additional=[]){
   return {context,nodes,build};
 }
 const quantities=items=>Object.fromEntries(items.map(i=>[i.n,i.q]));
-test('pictured case has corrected cultures, four swabs and unchanged blades/gloves/kits',()=>{
+test('pictured case skips extra swabs and keeps cultures, blades, gloves and kits',()=>{
   const h=harness(),items=h.build(pictured),q=quantities(items);
   assert.equal(q.TSB,'9/7/9');assert.equal(q.Thio,'9/7/9');assert.equal(q.RPMI,3);
-  assert.equal(q['Culture Swabs'],4);assert.equal(q['Scalpel Blades'],42);
+  assert.equal(q['Culture Swabs'],undefined);assert.equal(q['Scalpel Blades'],42);
   assert.equal(q['Adipose Recovery Kit'],2);assert.equal(q['Cord Clamps'],4);assert.equal(q['Bone Kit'],1);
   assert.equal(q['T1 — Size 7.5'],23);assert.equal(q['C — Size 7.5'],12);
   assert.deepEqual(h.build(pictured),items,'Rebuilding must not accumulate quantities');
   assert.deepEqual(JSON.parse(JSON.stringify(h.context.orderedPrintableSupplies())),items);
-  assert.match(h.nodes.get('supplies').innerHTML,/Culture Swabs/);
+  assert.doesNotMatch(h.nodes.get('supplies').innerHTML,/Culture Swabs/);
   assert.match(h.nodes.get('supplies').innerHTML,/pdx-culture-value">7</);
 });
-test('skin and adipose swabs survive adding bone/tendon grafts',()=>{
+test('skin plus adipose pulls four swabs unless the case includes Solvita or OCA/JRF MS',()=>{
   const h=harness();
-  for(const selected of [[...allSkin,'adipose'],[...allSkin,'adipose','humerus'],['anteriorSkin','adipose','achilles']])assert.equal(quantities(h.build({selected,sides:[]}))['Culture Swabs'],4);
-  assert.equal(quantities(h.build({selected:['adipose'],sides:[]})).TSB,'0/4/0');
+  const base=[...allSkin,'adipose'];
+  const data=JSON.parse(vm.runInContext('JSON.stringify(graftMasterSeed)',h.context));
+  for(const graft of data.filter(g=>g.group==='internal'&&!g.skin)){
+    const sides=graft.oca?[graft.id+'_left']:[];
+    const q=quantities(h.build({selected:[...base,graft.id],sides}));
+    assert.equal(q['Culture Swabs'],undefined,graft.id);
+  }
+  for(const sides of [['bilateral_femur_left'],['ocaStd_tibia_right'],['freshKnee_right']]){
+    assert.equal(quantities(h.build({selected:base,sides}))['Culture Swabs'],undefined,sides[0]);
+  }
+  for(const others of [[],['nerves','heartArtivion']]){
+    assert.equal(quantities(h.build({selected:[...base,...others],sides:[]}))['Culture Swabs'],4);
+  }
+  assert.equal(quantities(h.build({selected:['adipose'],sides:[]}))['Culture Swabs'],undefined);
   assert.equal(quantities(h.build({selected:allSkin,sides:[]}))['Culture Swabs'],undefined);
 });
 test('representative cases retain established quantities apart from explicit supply corrections',()=>{
   const cases=[[],allSkin,['humerus','fascia'],['heartArtivion'],['heartLeMaitre'],['nerves'],['nerves','saphLeMaitre'],['saphLeMaitre'],['heartLeMaitre','saphLeMaitre','femVeinLeMaitre','aiLeMaitre'],['cartilage','pericardium'],['kneeBlock'],['armBlock'],['adipose'],[...allSkin,'adipose'],pictured.selected,[...allSkin,'nerves','heartArtivion']];
   for(const selected of cases){
     const r={selected,sides:[]},old=quantities(harness(true).build(r)),actual=quantities(harness().build(r).filter(item=>!item.eyeDonorBlood));
-    if(selected.includes('adipose')){
-      if(selected.some(id=>allSkin.includes(id)))old['Culture Swabs']=4;
-    }
     const msIds=new Set(['humerus','radius','ulna','fascia','femur','tibia','fibula','achilles','hemi','kneeBlock','armBlock','cartilage','pericardium']);
     if(selected.some(id=>allSkin.includes(id))&&!selected.some(id=>msIds.has(id)))old['FT Skin Kit']=1;
     assert.deepEqual(actual,old,selected.join(','));
@@ -76,9 +85,9 @@ test('additional techs receive nerve and heart glove extras once on each build',
 });
 test('loader activates only the consolidated supply rules',()=>{
   const loader=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.equal((loader.match(/supply-rules\.js\?v=9214/g)||[]).length,1);
+  assert.equal((loader.match(/supply-rules\.js\?v=9220/g)||[]).length,1);
   for(const name of ['supply-name-fix','blade-culture-quantity-fix','glove-quantity-fix','supply-order-fix'])assert.ok(!loader.includes(name+'.js'));
-  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9214'));
+  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');assert.ok(sw.includes('./supply-rules.js?v=9220'));
 });
 
 test('each of the four adipose sites contributes one middle TSB and one middle Thio',()=>{
